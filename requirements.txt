@@ -1,0 +1,7 @@
+matplotlib
+gymnasium
+pygame
+torch
+stable-baselines3
+opencv-python
+-e .
