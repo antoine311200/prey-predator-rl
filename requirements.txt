@@ -1,0 +1,6 @@
+matplotlib
+gymnasium
+pygame
+torch
+stable-baselines3
+-e .
