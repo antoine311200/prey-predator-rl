@@ -39,7 +39,7 @@ class MultiAgentEnvionment(gym.Env):
             agent.step(action, action_space)
 
         # world step to add
-        self.world_step()
+        self.scenario.step()
 
         observations = []
         rewards = []

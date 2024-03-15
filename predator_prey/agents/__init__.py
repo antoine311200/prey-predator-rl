@@ -1,1 +1,1 @@
-from predator_prey.agents.agent import BaseAgent, AgentType
+from predator_prey.agents.agent import BaseAgent, AgentType, Entity
