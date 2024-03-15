@@ -2,13 +2,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from predator_prey.agents import BaseAgent, AgentType, Entity
+from predator_prey.agents import BaseAgent, EntityType, Entity
 
 
 @dataclass
 class ScenarioConfiguration:
     agents: list[BaseAgent]
-    landmark: list[Entity]
+    landmarks: list[Entity]
     communication_channels: int
 
     damping: float = 0.9
@@ -19,19 +19,19 @@ class BaseScenario:
     def __init__(
         self,
         agents: list[BaseAgent],
-        landmark: list[Entity],
+        landmarks: list[Entity],
         communication_channels: int,
         damping: float = 0.9,
     ):
         self.agents = agents
-        self.landmark = landmark
+        self.landmarks = landmarks
         self.communication_channels = communication_channels
 
         self.damping = damping
 
     @property
     def entities(self):
-        return self.agents + self.landmark
+        return self.agents + self.landmarks
 
     def step(self):
         # Set the physics of the environment
@@ -78,19 +78,19 @@ from predator_prey.render.geometry import Geometry, Shape
 
 class SimplePreyPredatorScenario(BaseScenario):
 
-    def __init__(self, n_predators: int, n_preys: int, communication_channels: int = 0):
+    def __init__(self, n_predators: int, n_preys: int, landmarks: list[Entity] = None, communication_channels: int = 0):
 
         prey_geometry = Geometry(Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=10)
         predator_geometry = Geometry(Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=10)
 
         # Create a list of agent preys and predators
-        preys = [BaseAgent(f"prey_{i}", AgentType("prey"), communicate=False, geometry=prey_geometry) for i in range(n_preys)]
-        predators = [BaseAgent(f"predator_{i}", AgentType("predator"), communicate=True, geometry=predator_geometry) for i in range(n_predators)]
+        preys = [BaseAgent(f"prey_{i}", EntityType("prey"), communicate=False, geometry=prey_geometry) for i in range(n_preys)]
+        predators = [BaseAgent(f"predator_{i}", EntityType("predator"), communicate=True, geometry=predator_geometry) for i in range(n_predators)]
 
         # Setup the scenario configuration
         config = ScenarioConfiguration(
             agents=preys + predators,
-            landmark=[],
+            landmarks=landmarks,
             communication_channels=communication_channels
         )
         # Dataclass to mapping
@@ -121,7 +121,7 @@ class SimplePreyPredatorScenario(BaseScenario):
                     [agent_entity.x - agent.x, agent_entity.y - agent.y]
                 )
 
-        for landmark in self.landmark:
+        for landmark in self.landmarks:
             rel_entity_positions.append([landmark.x - agent.x, landmark.y - agent.y])
 
         return np.array(rel_entity_positions)
@@ -134,12 +134,12 @@ class SimplePreyPredatorScenario(BaseScenario):
         # In this simple prey-predator scenario, we can use the list of preys and predators to compute the reward easily
         # The goal will simply be to be as far as possible from the predators for the preys
         # and as close as possible to the preys for the predators
-        is_prey = agent.type == AgentType("prey")
+        is_prey = agent.type == EntityType("prey")
 
         if is_prey:
             reward = 0
             for predator in self.agents:
-                if predator.type == AgentType("predator"):
+                if predator.type == EntityType("predator"):
                     distance = np.sqrt(
                         (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
                     )
@@ -147,7 +147,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         else:
             reward = 0
             for prey in self.agents:
-                if prey.type == AgentType("prey"):
+                if prey.type == EntityType("prey"):
                     distance = np.sqrt(
                         (prey.x - agent.x) ** 2 + (prey.y - agent.y) ** 2
                     )

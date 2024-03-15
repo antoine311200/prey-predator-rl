@@ -12,7 +12,7 @@ class MultiAgentEnvionment(gym.Env):
         self.n_steps = n_steps
 
         self.agents = scenario.agents
-        self.landmark = scenario.landmark
+        self.landmarks = scenario.landmarks
 
         self.observation_space = []
         self.scenario = scenario
