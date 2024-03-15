@@ -14,6 +14,18 @@ class ScenarioConfiguration:
     damping: float = 0.9
 
 
+
+def check_collision(entity1: Entity, entity2: Entity):
+    width1, height1 = entity1.geometry.width, entity1.geometry.height
+    width2, height2 = entity2.geometry.width, entity2.geometry.height
+
+    check_x = entity1.x - width1 // 2 < entity2.x + width2 // 2 and entity1.x + width1 // 2 > entity2.x - width2 // 2
+    check_y = entity1.y - height1 // 2 < entity2.y + height2 // 2 and entity1.y + height1 // 2 > entity2.y - height2 // 2
+
+    if check_x and check_y:
+        # print(f"Checking collision between {entity1.name} and {entity2.name}")
+        return True
+
 class BaseScenario:
 
     def __init__(
@@ -36,14 +48,15 @@ class BaseScenario:
     def step(self):
         # Set the physics of the environment
         # Check for collisions to the landmarks and update the position of the agents accordingly
-        # applied_forces = []
-        # for agent in self.agents:
+        # applied_forces = [None for _ in self.entities]
+        # for entity_1 in self.entities:
         #     force = np.array([0, 0])
 
-        #     if agent.can_move:
-        #         for landmark in self.landmark:
-        #             distance = np.sqrt((landmark.x - agent.x) ** 2 + (landmark.y - agent.y) ** 2)
-        #             force += (landmark.x - agent.x) / distance, (landmark.y - agent.y) / distance
+        #     if entity_1.can_move and entity_1.can_collide:
+        #         for entity_2 in self.entities:
+        #             if entity_1 != entity_2 and entity_1.can_collide:
+        #                 distance = np.sqrt((entity_2.x - entity_1.x) ** 2 + (entity_2.y - entity_1.y) ** 2)
+        #                 force += (entity_2.x - entity_1.x) / distance, (entity_2.y - entity_1.y) / distance
 
         #     applied_forces.append(force)
 
@@ -51,6 +64,12 @@ class BaseScenario:
         for agent in self.agents:
             agent.x += agent.vx
             agent.y += agent.vy
+
+            for entity in self.entities:
+                if agent != entity and entity.can_collide:
+                    if check_collision(agent, entity):
+                        agent.x -= agent.vx
+                        agent.y -= agent.vy
 
             agent.vx *= self.damping
             agent.vy *= self.damping
@@ -96,9 +115,6 @@ class SimplePreyPredatorScenario(BaseScenario):
         # Dataclass to mapping
         config = config.__dict__
         super().__init__(**config)
-
-    def step(self):
-        pass
 
     def reset(self, bounds: list[int]):
         for i, agent in enumerate(self.agents):

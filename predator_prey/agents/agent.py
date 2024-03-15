@@ -40,20 +40,19 @@ class BaseAgent(Entity):
         self.predators: list[EntityType] = getattr(kwargs, "predators", [])
 
         self.action_space = None
-
         self.communication = communication
 
+        self.last_action = None
 
         # self.nn = nn.Sequential(
         #     nn.BatchNorm1d(),
 
     def step(self, action):
         if self.can_move:
-            # print(f"Agent {self.name} moved to {action}")
             self.vx, self.vy = action[0]
+            self.last_action = action
 
-            self.x += self.vx
-            self.y += self.vy
+        # TODO: Change communication channels according to the action
 
     def __repr__(self):
         return f"Agent[{self.type} ({self.x}, {self.y})]"

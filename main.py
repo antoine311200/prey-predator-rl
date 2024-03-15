@@ -14,18 +14,30 @@ if __name__ == "__main__":
         Entity(
             "landmark_0",
             EntityType("landmark"),
-            x=width//2, y=height//2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), x=width//2, y=height//2, width=250, height=15),
+            x=width//2, y=height//2+50,
+            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
         ),
         Entity(
             "landmark_1",
             EntityType("landmark"),
-            x=width//2, y=height//2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), x=width//2, y=height//2, width=15, height=250),
+            x=width//2, y=height//2-50,
+            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
+        ),
+        Entity(
+            "landmark_2",
+            EntityType("landmark"),
+            x=width//2+50, y=height//2,
+            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
+        ),
+        Entity(
+            "landmark_3",
+            EntityType("landmark"),
+            x=width//2-50, y=height//2,
+            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
         ),
     ]
 
-    scenario = SimplePreyPredatorScenario(n_predators=8, n_preys=15, landmarks=landmarks)
+    scenario = SimplePreyPredatorScenario(n_predators=10, n_preys=10, landmarks=landmarks)
     env = MultiAgentEnvionment(scenario)
 
     observations = env.reset(bounds=[width, height])
