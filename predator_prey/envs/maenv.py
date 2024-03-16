@@ -1,8 +1,6 @@
-import gym
-from gym import spaces
-from gym.envs.registration import EnvSpec
-
+import gymnasium as gym
 import numpy as np
+from gymnasium import spaces
 
 from predator_prey.scenario import BaseScenario
 
@@ -21,7 +19,12 @@ class MultiAgentEnvionment(gym.Env):
             agent_action_space = []
             # Communication space
             if scenario.communication_channels > 0:
-                communication_space = spaces.Box(low=0, high=1, shape=(scenario.communication_channels,), dtype=np.float32)
+                communication_space = spaces.Box(
+                    low=0,
+                    high=1,
+                    shape=(scenario.communication_channels,),
+                    dtype=np.float32,
+                )
                 agent_action_space.append(communication_space)
 
             # Action space in 2D
@@ -31,7 +34,6 @@ class MultiAgentEnvionment(gym.Env):
             agent.action_space = spaces.Tuple(agent_action_space)
 
             # Observation space in 2D
-
 
     def step(self, actions):
         for agent, action in zip(self.agents, actions):
@@ -43,6 +45,7 @@ class MultiAgentEnvionment(gym.Env):
         observations = []
         rewards = []
         dones = []
+        truncated = []
         infos = []
         for agent in self.agents:
             observations.append(self.scenario.observe(agent))
@@ -52,17 +55,17 @@ class MultiAgentEnvionment(gym.Env):
 
         # TODO: Implement shared reward for cooperative agents
 
-        return observations, rewards, dones, infos
+        return observations, rewards, dones, truncated, infos
 
     def reset(self, **kwargs):
         self.scenario.reset(**kwargs)
-
+        info = {}
         # TODO: Get observations from scenario
         observations = []
         for agent in self.agents:
             observations.append(self.scenario.observe(agent))
 
-        return observations
+        return observations, info
 
     def render(self):
         pass
