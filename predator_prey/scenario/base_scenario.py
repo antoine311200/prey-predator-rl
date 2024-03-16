@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from predator_prey.agents import BaseAgent, EntityType, Entity
+from predator_prey.agents import BaseAgent, Entity, EntityType
 
 
 @dataclass
@@ -14,17 +14,23 @@ class ScenarioConfiguration:
     damping: float = 0.9
 
 
-
 def check_collision(entity1: Entity, entity2: Entity):
     width1, height1 = entity1.geometry.width, entity1.geometry.height
     width2, height2 = entity2.geometry.width, entity2.geometry.height
 
-    check_x = entity1.x - width1 // 2 < entity2.x + width2 // 2 and entity1.x + width1 // 2 > entity2.x - width2 // 2
-    check_y = entity1.y - height1 // 2 < entity2.y + height2 // 2 and entity1.y + height1 // 2 > entity2.y - height2 // 2
+    check_x = (
+        entity1.x - width1 // 2 < entity2.x + width2 // 2
+        and entity1.x + width1 // 2 > entity2.x - width2 // 2
+    )
+    check_y = (
+        entity1.y - height1 // 2 < entity2.y + height2 // 2
+        and entity1.y + height1 // 2 > entity2.y - height2 // 2
+    )
 
     if check_x and check_y:
         # print(f"Checking collision between {entity1.name} and {entity2.name}")
         return True
+
 
 class BaseScenario:
 
@@ -95,22 +101,47 @@ class BaseScenario:
 
 from predator_prey.render.geometry import Geometry, Shape
 
+
 class SimplePreyPredatorScenario(BaseScenario):
 
-    def __init__(self, n_predators: int, n_preys: int, landmarks: list[Entity] = None, communication_channels: int = 0):
+    def __init__(
+        self,
+        n_predators: int,
+        n_preys: int,
+        landmarks: list[Entity] = None,
+        communication_channels: int = 0,
+    ):
 
         prey_geometry = Geometry(Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=10)
-        predator_geometry = Geometry(Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=10)
+        predator_geometry = Geometry(
+            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=10
+        )
 
         # Create a list of agent preys and predators
-        preys = [BaseAgent(f"prey_{i}", EntityType("prey"), communicate=False, geometry=prey_geometry) for i in range(n_preys)]
-        predators = [BaseAgent(f"predator_{i}", EntityType("predator"), communicate=True, geometry=predator_geometry) for i in range(n_predators)]
+        preys = [
+            BaseAgent(
+                f"prey_{i}",
+                EntityType("prey"),
+                communicate=False,
+                geometry=prey_geometry,
+            )
+            for i in range(n_preys)
+        ]
+        predators = [
+            BaseAgent(
+                f"predator_{i}",
+                EntityType("predator"),
+                communicate=True,
+                geometry=predator_geometry,
+            )
+            for i in range(n_predators)
+        ]
 
         # Setup the scenario configuration
         config = ScenarioConfiguration(
             agents=preys + predators,
             landmarks=landmarks,
-            communication_channels=communication_channels
+            communication_channels=communication_channels,
         )
         # Dataclass to mapping
         config = config.__dict__
@@ -118,9 +149,15 @@ class SimplePreyPredatorScenario(BaseScenario):
 
     def reset(self, bounds: list[int]):
         for i, agent in enumerate(self.agents):
-            x = np.random.uniform(bounds[0]*0.1, bounds[0]*0.9)
-            y = np.random.uniform(bounds[1]*0.1, bounds[1]*0.9)
-            agent.set_position(x, y)
+            is_colliding = True
+            while is_colliding:
+                x = np.random.uniform(bounds[0] * 0.1, bounds[0] * 0.9)
+                y = np.random.uniform(bounds[1] * 0.1, bounds[1] * 0.9)
+                is_colliding = False
+                agent.set_position(x, y)
+                for entity in self.entities:
+                    if agent != entity and check_collision(agent, entity):
+                        is_colliding = True
 
             agent.vx = 0
             agent.vy = 0
