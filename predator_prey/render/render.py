@@ -60,7 +60,7 @@ class Instance:
         # self.transform.enable()
 
         for entity in entities:
-            entity.geometry.set_position(entity.x, entity.y)
+            entity.geometry.set_position(entity.x, entity.y, self.width, self.height)
             entity.geometry.render()
 
         # self.transform.disable()

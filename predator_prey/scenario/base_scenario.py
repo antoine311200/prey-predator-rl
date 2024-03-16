@@ -4,6 +4,7 @@ import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
+from utils import torus_distance
 
 
 @dataclass
@@ -224,9 +225,10 @@ class SimplePreyPredatorScenario(BaseScenario):
         if is_prey:
             reward = 0
             for predator in self.predators:
-                distance = np.sqrt(
-                    (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
-                )
+                # distance = np.sqrt(
+                #     (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
+                # )
+                distance = torus_distance(agent, predator, self.width, self.height)
                 reward += 0.01 * distance
         else:
             reward = 0
@@ -234,7 +236,8 @@ class SimplePreyPredatorScenario(BaseScenario):
             for predator in self.predators:
                 reward -= 0.01 * min(
                     [
-                        np.sqrt((prey.x - predator.x) ** 2 + (prey.y - predator.y) ** 2)
+                        #np.sqrt((prey.x - predator.x) ** 2 + (prey.y - predator.y) ** 2)
+                        torus_distance(prey, predator, self.width, self.height)
                         for prey in self.preys
                     ]
                 )

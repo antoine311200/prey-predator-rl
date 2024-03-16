@@ -23,10 +23,11 @@ if __name__ == "__main__":
     step = 0
     max_steps = 1_000_000_000
     while step < max_steps:
-        # instance.render(scenario.entities)
-        # pyglet.clock.tick()
-        # if instance.window.has_exit:
-        #    break
+        if step > 1_000_000:
+            instance.render(scenario.entities)
+            pyglet.clock.tick()
+            if instance.window.has_exit:
+                break
         #
         # Take action and update environment
         actions = agent.act(obs, explore=True)
