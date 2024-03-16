@@ -54,23 +54,23 @@ class Geometry:
             self.hit_box = pyglet.shapes.Box(self.x - width//2, self.y - height//2, self.width, self.height, color=(0, 0, 0), batch=batch)
         self.render_box = True
 
-    def set_position(self, x, y, total_width=int(1e6), total_height=int(1e6)):
-        self.x = x % total_width
-        self.y = y % total_height
-        self.center_point._x = x % total_width
-        self.center_point._y = y % total_height
+    def set_position(self, x, y):
+        self.x = x
+        self.y = y
+        self.center_point._x = x
+        self.center_point._y = y
 
         if self.shape == Shape.CIRCLE:
-            self.object._x = x % total_width
-            self.object._y = y % total_height
+            self.object._x = x
+            self.object._y = y
         else:
-            self.object._x = (x - self.width//2) % total_width
-            self.object._y = (y - self.height//2) % total_height
+            self.object._x = (x - self.width//2)
+            self.object._y = (y - self.height//2)
         self.object._create_vertex_list()
         self.center_point._create_vertex_list()
 
-        self.hit_box._x = (x - self.width//2) % total_width
-        self.hit_box._y = (y - self.height//2) % total_height
+        self.hit_box._x = (x - self.width//2)
+        self.hit_box._y = (y - self.height//2)
         self.hit_box._create_vertex_list()
 
 

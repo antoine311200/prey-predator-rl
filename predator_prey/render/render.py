@@ -36,7 +36,7 @@ class Instance:
         self.window.dispatch_events()
 
         for entity in entities:
-            entity.geometry.set_position(entity.x, entity.y, self.width, self.height)
+            entity.geometry.set_position(entity.x, entity.y)
             entity.geometry.render()
 
         # Draw a line to indicate the scale

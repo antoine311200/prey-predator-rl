@@ -8,7 +8,7 @@ from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
     scenario, instance = get_scenarios("simple_prey_predator")
-    env = MultiAgentEnvionment(scenario, n_steps=300)
+    env = MultiAgentEnvionment(scenario, n_steps=1000)
     agent = MADDPG(
         env.observation_space[0].shape[0],
         env.action_space[0].shape[0],
@@ -23,12 +23,12 @@ if __name__ == "__main__":
     step = 0
     max_steps = 1_000_000_000
     while step < max_steps:
-        if step > 20_000:
+        if step > 0:
             instance.render(scenario.entities)
             pyglet.clock.tick()
             if instance.window.has_exit:
                 break
-        #
+
         # Take action and update environment
         actions = agent.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
@@ -43,3 +43,7 @@ if __name__ == "__main__":
 
         step += 1
         print("step:", step, obs[0][0], dones[0])
+
+        if step % 25_000 == 0:
+            print("Saving model")
+            agent.save("test")

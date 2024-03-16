@@ -281,3 +281,8 @@ class MADDPG:
         # Update target networks
         for agent in self.agents:
             agent.update_actor_target()
+
+    def save(self, path: str) -> None:
+        for incr, agent in enumerate(self.agents):
+            torch.save(agent.actor.state_dict(), f"{path}_actor_{incr}.pth")
+            torch.save(agent.critic.state_dict(), f"{path}_critic_{incr}.pth")
