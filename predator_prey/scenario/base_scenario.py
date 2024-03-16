@@ -19,17 +19,17 @@ class ScenarioConfiguration:
     damping: float = 0.9
 
 
-def check_collision(entity1: Entity, entity2: Entity):
+def check_collision(entity1: Entity, entity2: Entity, total_width: int = int(1e6), total_height: int = int(1e6), offset: int = 0):
     width1, height1 = entity1.geometry.width, entity1.geometry.height
     width2, height2 = entity2.geometry.width, entity2.geometry.height
 
     check_x = (
-        entity1.x - width1 // 2 < entity2.x + width2 // 2
-        and entity1.x + width1 // 2 > entity2.x - width2 // 2
+        (entity1.x - width1 // 2) % total_width < (entity2.x + width2 // 2) % total_width + offset
+        and (entity1.x + width1 // 2) % total_width > (entity2.x - width2 // 2) % total_width - offset
     )
     check_y = (
-        entity1.y - height1 // 2 < entity2.y + height2 // 2
-        and entity1.y + height1 // 2 > entity2.y - height2 // 2
+        (entity1.y - height1 // 2) % total_height < (entity2.y + height2 // 2) % total_height + offset
+        and (entity1.y + height1 // 2) % total_height > (entity2.y - height2 // 2) % total_height - offset
     )
 
     if check_x and check_y:
@@ -73,7 +73,7 @@ class BaseScenario:
 
             for entity in self.entities:
                 if agent != entity and entity.can_collide:
-                    if check_collision(agent, entity):
+                    if check_collision(agent, entity):#, self.width, self.height, offset=2):
                         agent.x -= agent.vx
                         agent.y -= agent.vy
 
@@ -125,7 +125,7 @@ class SimplePreyPredatorScenario(BaseScenario):
             shape=(2 * (n_preys + n_predators - 1) + 2,),
             dtype=np.float32,
         )
-        prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+        prey_action_space = spaces.Box(low=-5, high=5, shape=(2,), dtype=np.float32)
         self.preys = [
             BaseAgent(
                 f"prey_{i}",
@@ -186,7 +186,7 @@ class SimplePreyPredatorScenario(BaseScenario):
                 is_colliding = False
                 agent.set_position(x, y)
                 for entity in self.entities:
-                    if agent != entity and check_collision(agent, entity):
+                    if agent != entity and check_collision(agent, entity):#, self.width, self.height, offset=0):
                         is_colliding = True
 
             agent.vx = 0
@@ -200,12 +200,16 @@ class SimplePreyPredatorScenario(BaseScenario):
         rel_entity_positions = []
         for agent_entity in self.agents:
             if agent_entity != agent:
-                rel_entity_positions.extend(
-                    [agent_entity.x - agent.x, agent_entity.y - agent.y]
-                )
+                rel_entity_positions.extend([
+                    (agent_entity.x - agent.x) % self.width,
+                    (agent_entity.y - agent.y) % self.height
+                ])
 
         for landmark in self.landmarks:
-            rel_entity_positions.extend([landmark.x - agent.x, landmark.y - agent.y])
+            rel_entity_positions.extend([
+                (landmark.x - agent.x) % self.width,
+                (landmark.y - agent.y) % self.height
+            ])
 
         # Add agent velocity
         rel_entity_positions.extend([agent.vx, agent.vy])
@@ -233,13 +237,29 @@ class SimplePreyPredatorScenario(BaseScenario):
         else:
             reward = 0
             # reward is the distance for each prey to the predator
-            for predator in self.predators:
-                reward -= 0.01 * min(
-                    [
-                        #np.sqrt((prey.x - predator.x) ** 2 + (prey.y - predator.y) ** 2)
-                        torus_distance(prey, predator, self.width, self.height)
-                        for prey in self.preys
-                    ]
-                )
+            # for predator in self.predators:
+            #     reward -= 0.01 * min(
+            #         [
+            #             #np.sqrt((prey.x - predator.x) ** 2 + (prey.y - predator.y) ** 2)
+            #             torus_distance(prey, predator, self.width, self.height)
+            #             for prey in self.preys
+            #         ]
+            #     )
+            reward -= 0.01 * min(
+                [
+                    torus_distance(prey, agent, self.width, self.height)
+                    for prey in self.preys
+                ]
+            )
 
         return reward
+
+    def done(self, agent: BaseAgent):
+        # If the agent is a prey, it is done if it is caught by a predator
+        if agent.type == EntityType("prey"):
+            for predator in self.predators:
+                radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.8
+                # print(torus_distance(agent, predator, self.width, self.height), radius)
+                if torus_distance(agent, predator, self.width, self.height) < radius:
+                    return True
+        return False
