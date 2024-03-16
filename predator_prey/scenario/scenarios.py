@@ -8,39 +8,9 @@ from predator_prey.scenario.base_scenario import BaseScenario
 
 
 def simple_prey_predator(width: int, height: int) -> BaseScenario:
-    landmarks = [
-        Entity(
-            "landmark_0",
-            EntityType("landmark"),
-            x=width // 2,
-            y=height // 2 + 50,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
-        ),
-        Entity(
-            "landmark_1",
-            EntityType("landmark"),
-            x=width // 2,
-            y=height // 2 - 50,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
-        ),
-        Entity(
-            "landmark_2",
-            EntityType("landmark"),
-            x=width // 2 + 50,
-            y=height // 2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
-        ),
-        Entity(
-            "landmark_3",
-            EntityType("landmark"),
-            x=width // 2 - 50,
-            y=height // 2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
-        ),
-    ]
 
     return SimplePreyPredatorScenario(
-        n_predators=10, n_preys=10, landmarks=landmarks, width=width, height=height
+        n_predators=3, n_preys=1, landmarks=[], width=width, height=height
     )
 
 

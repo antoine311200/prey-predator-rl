@@ -25,6 +25,8 @@ class Critic(torch.nn.Module):
         self.l3 = torch.nn.Linear(hidden_size, 1)
 
     def forward(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+        # Flatten the actions
+        action = torch.flatten(action, start_dim=1)
         q = F.relu(self.l1(torch.cat([state, action], 1)))
         q = F.relu(self.l2(q))
         return self.l3(q)

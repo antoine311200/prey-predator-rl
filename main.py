@@ -1,24 +1,44 @@
+import numpy as np
 import pyglet
 
+from predator_prey.ddpg import MADDPG
 from predator_prey.envs import MultiAgentEnvionment
+from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
     scenario, instance = get_scenarios("simple_prey_predator")
-    env = MultiAgentEnvionment(scenario)
+    env = MultiAgentEnvionment(scenario, n_steps=1000)
+    agent = MADDPG(
+        env.observation_space[0].shape[0],
+        env.action_space[0].shape[0],
+        hidden_size=64,
+        actor_class=Actor,
+        critic_class=Critic,
+        n_agents=len(env.agents),
+    )
 
-    observations, info = env.reset()
+    obs, info = env.reset()
 
     step = 0
     max_steps = 1_000_000_000
     while step < max_steps:
-        instance.render(scenario.entities)
-        pyglet.clock.tick()
-        if instance.window.has_exit:
-            break
-
+        # instance.render(scenario.entities)
+        # pyglet.clock.tick()
+        # if instance.window.has_exit:
+        #    break
+        #
         # Take action and update environment
-        actions = env.action_space.sample()
-        observations, rewards, dones, truncated, infos = env.step(actions)
+        actions = agent.act(obs, explore=True)
+        next_obs, rewards, dones, truncated, infos = env.step(actions)
+        # Convert to numpy arrays for easier handling
+        actions = np.array(actions)
+        agent.remember(obs, actions, rewards, dones, next_obs)
+        agent.train()
+        obs = next_obs
+        dones = np.logical_or(dones, truncated)
+        if np.all(dones):
+            obs, info = env.reset()
 
         step += 1
+        print("step:", step, obs[0][0], dones[0])

@@ -86,16 +86,16 @@ class BaseScenario:
         pass
 
     def observe(self, agent: BaseAgent):
-        pass
+        raise NotImplementedError
 
     def reward(self, agent: BaseAgent):
-        pass
+        return 0
 
     def done(self, agent: BaseAgent):
-        pass
+        return False
 
     def info(self, agent: BaseAgent):
-        pass
+        return {}
 
 
 from predator_prey.render.geometry import Geometry, Shape
@@ -121,11 +121,11 @@ class SimplePreyPredatorScenario(BaseScenario):
         prey_observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(2 * n_preys + 2 * n_predators + 2,),
+            shape=(2 * (n_preys + n_predators - 1) + 2,),
             dtype=np.float32,
         )
         prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-        preys = [
+        self.preys = [
             BaseAgent(
                 f"prey_{i}",
                 EntityType("prey"),
@@ -140,9 +140,12 @@ class SimplePreyPredatorScenario(BaseScenario):
             low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
         )
         predator_action_space = spaces.Box(
-            low=-1, high=1, shape=(2 * n_preys + 2 * n_predators + 2,), dtype=np.float32
+            low=-1,
+            high=1,
+            shape=(2 * (n_preys + n_predators - 1) + 2,),
+            dtype=np.float32,
         )
-        predators = [
+        self.predators = [
             BaseAgent(
                 f"predator_{i}",
                 EntityType("predator"),
@@ -155,12 +158,14 @@ class SimplePreyPredatorScenario(BaseScenario):
         ]
         # Scenario spaces
         observation_space = spaces.Tuple(
-            [agent.observation_space for agent in preys + predators]
+            [agent.observation_space for agent in self.preys + self.predators]
         )
-        action_space = spaces.Tuple([agent.action_space for agent in preys + predators])
+        action_space = spaces.Tuple(
+            [agent.action_space for agent in self.preys + self.predators]
+        )
         # Setup the scenario configuration
         config = ScenarioConfiguration(
-            agents=preys + predators,
+            agents=self.preys + self.predators,
             landmarks=landmarks,
             width=width,
             height=height,
@@ -194,12 +199,15 @@ class SimplePreyPredatorScenario(BaseScenario):
         rel_entity_positions = []
         for agent_entity in self.agents:
             if agent_entity != agent:
-                rel_entity_positions.append(
+                rel_entity_positions.extend(
                     [agent_entity.x - agent.x, agent_entity.y - agent.y]
                 )
 
         for landmark in self.landmarks:
-            rel_entity_positions.append([landmark.x - agent.x, landmark.y - agent.y])
+            rel_entity_positions.extend([landmark.x - agent.x, landmark.y - agent.y])
+
+        # Add agent velocity
+        rel_entity_positions.extend([agent.vx, agent.vy])
 
         return np.array(rel_entity_positions)
 
@@ -215,19 +223,20 @@ class SimplePreyPredatorScenario(BaseScenario):
 
         if is_prey:
             reward = 0
-            for predator in self.agents:
-                if predator.type == EntityType("predator"):
-                    distance = np.sqrt(
-                        (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
-                    )
-                    reward += distance
+            for predator in self.predators:
+                distance = np.sqrt(
+                    (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
+                )
+                reward += 0.01 * distance
         else:
             reward = 0
-            for prey in self.agents:
-                if prey.type == EntityType("prey"):
-                    distance = np.sqrt(
-                        (prey.x - agent.x) ** 2 + (prey.y - agent.y) ** 2
-                    )
-                    reward -= distance
+            # reward is the distance for each prey to the predator
+            for predator in self.predators:
+                reward -= 0.01 * min(
+                    [
+                        np.sqrt((prey.x - predator.x) ** 2 + (prey.y - predator.y) ** 2)
+                        for prey in self.preys
+                    ]
+                )
 
         return reward

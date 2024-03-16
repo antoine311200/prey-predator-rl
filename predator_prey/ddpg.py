@@ -18,12 +18,16 @@ class ReplayBuffer:
         self.max_size = max_size
 
         # Init buffers
-        self.states = torch.zeros((max_size, n_agents, state_size), dtype=np.float32)
-        self.actions = torch.zeros((max_size, n_agents, action_size), dtype=np.float32)
-        self.reward = torch.zeros((max_size, n_agents, 1), dtype=np.float32)
-        self.done = torch.zeros((max_size, n_agents, 1), dtype=np.float32)
+        self.states = torch.zeros(
+            size=(max_size, n_agents, state_size), dtype=torch.float32
+        )
+        self.actions = torch.zeros(
+            size=(max_size, n_agents, action_size), dtype=torch.float32
+        )
+        self.reward = torch.zeros(size=(max_size, n_agents, 1), dtype=torch.float32)
+        self.done = torch.zeros(size=(max_size, n_agents, 1), dtype=torch.bool)
         self.next_states = torch.zeros(
-            (max_size, n_agents, state_size), dtype=np.float32
+            size=(max_size, n_agents, state_size), dtype=torch.float32
         )
 
         # Init pointers
@@ -44,8 +48,8 @@ class ReplayBuffer:
     ) -> None:
         self.states[self.pointer] = torch.FloatTensor(state)
         self.actions[self.pointer] = torch.FloatTensor(action)
-        self.reward[self.pointer] = torch.FloatTensor(reward)
-        self.done[self.pointer] = torch.FloatTensor(done)
+        self.reward[self.pointer] = torch.FloatTensor(np.expand_dims(reward, axis=-1))
+        self.done[self.pointer] = torch.FloatTensor(np.expand_dims(done, axis=-1))
         self.next_states[self.pointer] = torch.FloatTensor(next_state)
 
         self.pointer = (self.pointer + 1) % self.max_size
@@ -54,7 +58,7 @@ class ReplayBuffer:
     def sample(
         self, batch_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        indices = np.random.randint(self.size)[:batch_size]
+        indices = np.random.randint(self.size, size=batch_size)
 
         states = self.states[indices]
         actions = self.actions[indices]
@@ -97,6 +101,8 @@ class DDPG:
         self,
         state_size: int,
         action_size: int,
+        hidden_size: int,
+        n_agents: int,
         gamma: float,
         actor_class,
         critic_class,
@@ -109,11 +115,13 @@ class DDPG:
 
         # Init models
         self.ou = OrnsteinUhlenbeckActionNoise(mu=np.zeros((action_size,)))
-        self.actor = actor_class(state_size, action_size).to(device)
-        self.critic = critic_class(state_size, action_size).to(device)
+        self.actor = actor_class(state_size, hidden_size, action_size).to(device)
+        self.critic = critic_class(state_size, hidden_size, action_size * n_agents).to(
+            device
+        )
 
         self.target_actor = deepcopy(self.actor).to(device)
-        self.target_critic = deepcopy(self.actor).to(device)
+        self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -151,11 +159,6 @@ class DDPG:
         target_actions: torch.Tensor,
         entropy: torch.Tensor,
     ) -> None:
-        states = states.to(self.device)
-        actions = actions.to(self.device)
-        rewards = rewards.to(self.device)
-        next_states = next_states.to(self.device)
-        dones = dones.to(self.device)
 
         # Update critic
         next_q = torch.where(dones, self.target_critic(next_states, target_actions), 0)
@@ -189,6 +192,7 @@ class MADDPG:
         self,
         state_size: int,
         action_size: int,
+        hidden_size: int,
         actor_class: torch.nn.Module,
         critic_class: torch.nn.Module,
         n_agents: int = 1,
@@ -200,7 +204,16 @@ class MADDPG:
         self.rb = ReplayBuffer(state_size, action_size, n_agents, max_buffer_size)
 
         self.agents = [
-            DDPG(state_size, action_size, gamma, actor_class, critic_class, self.device)
+            DDPG(
+                state_size,
+                action_size,
+                hidden_size,
+                n_agents,
+                gamma,
+                actor_class,
+                critic_class,
+                self.device,
+            )
             for _ in range(n_agents)
         ]
 
@@ -215,8 +228,8 @@ class MADDPG:
         for agent in self.agents:
             agent.reset()
 
-    def act(self, states: np.ndarray, explore: bool = False) -> np.ndarray:
-        return np.array(
+    def act(self, states: np.ndarray, explore: bool = False) -> Tuple[np.ndarray, ...]:
+        return tuple(
             [agent.act(state, explore) for agent, state in zip(self.agents, states)]
         )
 
@@ -232,21 +245,28 @@ class MADDPG:
         ):
             return
         states, actions, rewards, dones, next_states = self.rb.sample(self.batch_size)
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
         for incr, agent in enumerate(self.agents):
             # Get the actions of all agents
-            current_action = torch.tensor(
+            current_action = torch.stack(
                 [
                     _agent.get_current_action(states[:, _incr])
                     for _incr, _agent in enumerate(self.agents)
-                ]
-            ).transpose(0, 1)
+                ],
+                dim=1,
+            )
             # Get the target_actions, the batch size is first
-            target_actions = torch.tensor(
+            target_actions = torch.stack(
                 [
                     _agent.get_target_action(next_states[:, _incr])
                     for _incr, _agent in enumerate(self.agents)
-                ]
-            ).transpose(0, 1)
+                ],
+                dim=1,
+            )
             agent.train(
                 states[:, incr],
                 actions,
