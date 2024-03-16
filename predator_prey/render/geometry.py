@@ -64,13 +64,13 @@ class Geometry:
             self.object._x = x
             self.object._y = y
         else:
-            self.object._x = x - self.width//2
-            self.object._y = y - self.height//2
+            self.object._x = (x - self.width//2)
+            self.object._y = (y - self.height//2)
         self.object._create_vertex_list()
         self.center_point._create_vertex_list()
 
-        self.hit_box._x = x - self.width//2
-        self.hit_box._y = y - self.height//2
+        self.hit_box._x = (x - self.width//2)
+        self.hit_box._y = (y - self.height//2)
         self.hit_box._create_vertex_list()
 
 

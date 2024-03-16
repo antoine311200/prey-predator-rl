@@ -23,11 +23,12 @@ if __name__ == "__main__":
     step = 0
     max_steps = 1_000_000_000
     while step < max_steps:
-        # instance.render(scenario.entities)
-        # pyglet.clock.tick()
-        # if instance.window.has_exit:
-        #    break
-        #
+        if step > 0:
+            instance.render(scenario.entities)
+            pyglet.clock.tick()
+            if instance.window.has_exit:
+                break
+
         # Take action and update environment
         actions = agent.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
@@ -36,9 +37,13 @@ if __name__ == "__main__":
         agent.remember(obs, actions, rewards, dones, next_obs)
         agent.train()
         obs = next_obs
-        dones = np.logical_or(dones, truncated)
-        if np.all(dones):
+        if np.any(dones) or truncated:
+            print("Resetting environment")
             obs, info = env.reset()
 
         step += 1
         print("step:", step, obs[0][0], dones[0])
+
+        if step % 25_000 == 0:
+            print("Saving model")
+            agent.save("test")

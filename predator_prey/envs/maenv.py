@@ -33,9 +33,9 @@ class MultiAgentEnvionment:
             [self.scenario.done(agent) for agent in self.agents], dtype=bool
         )
         if self._step >= self.n_steps:
-            truncated = np.array([True for _ in self.agents], dtype=bool)
+            truncated = True#np.array([True for _ in self.agents], dtype=bool)
         else:
-            truncated = np.array([False for _ in self.agents], dtype=bool)
+            truncated = False#np.array([False for _ in self.agents], dtype=bool)
         infos = {}
 
         # TODO: Implement shared reward for cooperative agents

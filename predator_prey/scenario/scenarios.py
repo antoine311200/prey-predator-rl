@@ -10,12 +10,12 @@ from predator_prey.scenario.base_scenario import BaseScenario
 def simple_prey_predator(width: int, height: int) -> BaseScenario:
 
     return SimplePreyPredatorScenario(
-        n_predators=3, n_preys=1, landmarks=[], width=width, height=height
+        n_predators=4, n_preys=1, landmarks=[], width=width, height=height
     )
 
 
 def get_scenarios(
-    name: str, width: int = 800, height: int = 500
+    name: str, width: int = 250, height: int = 250
 ) -> Tuple[BaseScenario, Instance]:
     if name == "simple_prey_predator":
         instance = Instance(width, height)
