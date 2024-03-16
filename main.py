@@ -1,57 +1,44 @@
-from predator_prey.envs import MultiAgentEnvionment
-from predator_prey.scenario import SimplePreyPredatorScenario
-from predator_prey.render.render import Instance
-from predator_prey.render.geometry import Geometry, Shape
-from predator_prey.agents import BaseAgent, EntityType, Entity
-
+import numpy as np
 import pyglet
 
+from predator_prey.ddpg import MADDPG
+from predator_prey.envs import MultiAgentEnvionment
+from predator_prey.models import Actor, Critic
+from predator_prey.scenario.scenarios import get_scenarios
+
 if __name__ == "__main__":
-    width, height = 800, 500
-    instance = Instance(width, height)
+    scenario, instance = get_scenarios("simple_prey_predator")
+    env = MultiAgentEnvionment(scenario, n_steps=1000)
+    agent = MADDPG(
+        env.observation_space[0].shape[0],
+        env.action_space[0].shape[0],
+        hidden_size=64,
+        actor_class=Actor,
+        critic_class=Critic,
+        n_agents=len(env.agents),
+    )
 
-    landmarks = [
-        Entity(
-            "landmark_0",
-            EntityType("landmark"),
-            x=width//2, y=height//2+50,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
-        ),
-        Entity(
-            "landmark_1",
-            EntityType("landmark"),
-            x=width//2, y=height//2-50,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=600, height=15),
-        ),
-        Entity(
-            "landmark_2",
-            EntityType("landmark"),
-            x=width//2+50, y=height//2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
-        ),
-        Entity(
-            "landmark_3",
-            EntityType("landmark"),
-            x=width//2-50, y=height//2,
-            geometry=Geometry(Shape.RECTANGLE, color=(0, 255, 0), width=15, height=600),
-        ),
-    ]
-
-    scenario = SimplePreyPredatorScenario(n_predators=10, n_preys=10, landmarks=landmarks)
-    env = MultiAgentEnvionment(scenario)
-
-    observations = env.reset(bounds=[width, height])
+    obs, info = env.reset()
 
     step = 0
     max_steps = 1_000_000_000
     while step < max_steps:
-        instance.render(scenario.entities)
-        pyglet.clock.tick()
-        if instance.window.has_exit:
-            break
-
+        # instance.render(scenario.entities)
+        # pyglet.clock.tick()
+        # if instance.window.has_exit:
+        #    break
+        #
         # Take action and update environment
-        actions = [agent.action_space.sample() for agent in env.agents]
-        observations, rewards, dones, infos = env.step(actions)
+        actions = agent.act(obs, explore=True)
+        next_obs, rewards, dones, truncated, infos = env.step(actions)
+        # Convert to numpy arrays for easier handling
+        actions = np.array(actions)
+        agent.remember(obs, actions, rewards, dones, next_obs)
+        agent.train()
+        obs = next_obs
+        dones = np.logical_or(dones, truncated)
+        if np.all(dones):
+            obs, info = env.reset()
 
         step += 1
+        print("step:", step, obs[0][0], dones[0])

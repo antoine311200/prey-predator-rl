@@ -1,6 +1,7 @@
 matplotlib
 gymnasium
 pygame
+pyglet
 torch
 stable-baselines3
 opencv-python
