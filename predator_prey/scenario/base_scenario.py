@@ -10,6 +10,8 @@ class ScenarioConfiguration:
     agents: list[BaseAgent]
     landmarks: list[Entity]
     communication_channels: int
+    width: int
+    height: int
 
     damping: float = 0.9
 
@@ -39,6 +41,8 @@ class BaseScenario:
         agents: list[BaseAgent],
         landmarks: list[Entity],
         communication_channels: int,
+        width: int,
+        height: int,
         damping: float = 0.9,
     ):
         self.agents = agents
@@ -46,6 +50,9 @@ class BaseScenario:
         self.communication_channels = communication_channels
 
         self.damping = damping
+        # Set instance size
+        self.width = width
+        self.height = height
 
     @property
     def entities(self):
@@ -108,6 +115,8 @@ class SimplePreyPredatorScenario(BaseScenario):
         self,
         n_predators: int,
         n_preys: int,
+        width: int,
+        height: int,
         landmarks: list[Entity] = None,
         communication_channels: int = 0,
     ):
@@ -142,17 +151,19 @@ class SimplePreyPredatorScenario(BaseScenario):
             agents=preys + predators,
             landmarks=landmarks,
             communication_channels=communication_channels,
+            width=width,
+            height=height,
         )
         # Dataclass to mapping
         config = config.__dict__
         super().__init__(**config)
 
-    def reset(self, bounds: list[int]):
+    def reset(self):
         for i, agent in enumerate(self.agents):
             is_colliding = True
             while is_colliding:
-                x = np.random.uniform(bounds[0] * 0.1, bounds[0] * 0.9)
-                y = np.random.uniform(bounds[1] * 0.1, bounds[1] * 0.9)
+                x = np.random.uniform(self.width * 0.1, self.width * 0.9)
+                y = np.random.uniform(self.height * 0.1, self.height * 0.9)
                 is_colliding = False
                 agent.set_position(x, y)
                 for entity in self.entities:
