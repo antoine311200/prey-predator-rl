@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 
@@ -9,9 +10,10 @@ from predator_prey.agents import BaseAgent, Entity, EntityType
 class ScenarioConfiguration:
     agents: list[BaseAgent]
     landmarks: list[Entity]
-    communication_channels: int
     width: int
     height: int
+    observation_space: spaces.Tuple
+    action_space: spaces.Tuple
 
     damping: float = 0.9
 
@@ -40,39 +42,29 @@ class BaseScenario:
         self,
         agents: list[BaseAgent],
         landmarks: list[Entity],
-        communication_channels: int,
         width: int,
         height: int,
+        observation_space: spaces.Tuple,
+        action_space: spaces.Tuple,
         damping: float = 0.9,
     ):
         self.agents = agents
         self.landmarks = landmarks
-        self.communication_channels = communication_channels
 
         self.damping = damping
         # Set instance size
         self.width = width
         self.height = height
 
+        # Init spaces
+        self.observation_space = observation_space
+        self.action_space = action_space
+
     @property
     def entities(self):
         return self.agents + self.landmarks
 
     def step(self):
-        # Set the physics of the environment
-        # Check for collisions to the landmarks and update the position of the agents accordingly
-        # applied_forces = [None for _ in self.entities]
-        # for entity_1 in self.entities:
-        #     force = np.array([0, 0])
-
-        #     if entity_1.can_move and entity_1.can_collide:
-        #         for entity_2 in self.entities:
-        #             if entity_1 != entity_2 and entity_1.can_collide:
-        #                 distance = np.sqrt((entity_2.x - entity_1.x) ** 2 + (entity_2.y - entity_1.y) ** 2)
-        #                 force += (entity_2.x - entity_1.x) / distance, (entity_2.y - entity_1.y) / distance
-
-        #     applied_forces.append(force)
-
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
             agent.x += agent.vx
@@ -118,7 +110,6 @@ class SimplePreyPredatorScenario(BaseScenario):
         width: int,
         height: int,
         landmarks: list[Entity] = None,
-        communication_channels: int = 0,
     ):
 
         prey_geometry = Geometry(Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=10)
@@ -127,32 +118,54 @@ class SimplePreyPredatorScenario(BaseScenario):
         )
 
         # Create a list of agent preys and predators
+        prey_observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(2 * n_preys + 2 * n_predators + 2,),
+            dtype=np.float32,
+        )
+        prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         preys = [
             BaseAgent(
                 f"prey_{i}",
                 EntityType("prey"),
                 communicate=False,
                 geometry=prey_geometry,
+                observation_space=prey_observation_space,
+                action_space=prey_action_space,
             )
             for i in range(n_preys)
         ]
+        predator_observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+        )
+        predator_action_space = spaces.Box(
+            low=-1, high=1, shape=(2 * n_preys + 2 * n_predators + 2,), dtype=np.float32
+        )
         predators = [
             BaseAgent(
                 f"predator_{i}",
                 EntityType("predator"),
                 communicate=True,
                 geometry=predator_geometry,
+                observation_space=predator_observation_space,
+                action_space=predator_action_space,
             )
             for i in range(n_predators)
         ]
-
+        # Scenario spaces
+        observation_space = spaces.Tuple(
+            [agent.observation_space for agent in preys + predators]
+        )
+        action_space = spaces.Tuple([agent.action_space for agent in preys + predators])
         # Setup the scenario configuration
         config = ScenarioConfiguration(
             agents=preys + predators,
             landmarks=landmarks,
-            communication_channels=communication_channels,
             width=width,
             height=height,
+            observation_space=observation_space,
+            action_space=action_space,
         )
         # Dataclass to mapping
         config = config.__dict__
@@ -207,7 +220,7 @@ class SimplePreyPredatorScenario(BaseScenario):
                     distance = np.sqrt(
                         (predator.x - agent.x) ** 2 + (predator.y - agent.y) ** 2
                     )
-                    reward -= distance
+                    reward += distance
         else:
             reward = 0
             for prey in self.agents:
@@ -215,6 +228,6 @@ class SimplePreyPredatorScenario(BaseScenario):
                     distance = np.sqrt(
                         (prey.x - agent.x) ** 2 + (prey.y - agent.y) ** 2
                     )
-                    reward += distance
+                    reward -= distance
 
         return reward

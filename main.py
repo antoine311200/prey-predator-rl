@@ -18,7 +18,7 @@ if __name__ == "__main__":
             break
 
         # Take action and update environment
-        actions = [agent.action_space.sample() for agent in env.agents]
+        actions = env.action_space.sample()
         observations, rewards, dones, truncated, infos = env.step(actions)
 
         step += 1

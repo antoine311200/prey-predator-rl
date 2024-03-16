@@ -1,6 +1,5 @@
 import gymnasium as gym
 import numpy as np
-from gymnasium import spaces
 
 from predator_prey.scenario import BaseScenario
 
@@ -12,28 +11,9 @@ class MultiAgentEnvionment(gym.Env):
         self.agents = scenario.agents
         self.landmarks = scenario.landmarks
 
-        self.observation_space = []
         self.scenario = scenario
-
-        for agent in self.agents:
-            agent_action_space = []
-            # Communication space
-            if scenario.communication_channels > 0:
-                communication_space = spaces.Box(
-                    low=0,
-                    high=1,
-                    shape=(scenario.communication_channels,),
-                    dtype=np.float32,
-                )
-                agent_action_space.append(communication_space)
-
-            # Action space in 2D
-            action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-            agent_action_space.append(action_space)
-
-            agent.action_space = spaces.Tuple(agent_action_space)
-
-            # Observation space in 2D
+        self.observation_space = scenario.observation_space
+        self.action_space = scenario.action_space
 
     def step(self, actions):
         for agent, action in zip(self.agents, actions):

@@ -1,15 +1,27 @@
+# Create a EntityType string
+from typing import NewType
+
 import numpy as np
 import torch
+from gymnasium import spaces
 from torch import nn
 
 from predator_prey.render.geometry import Geometry, Shape
 
-# Create a EntityType string
-from typing import NewType
 EntityType = NewType("EntityType", str)
 
+
 class Entity:
-    def __init__(self, name, type: EntityType, x, y, geometry: Geometry = None, can_move: bool = True, can_collide: bool = True):
+    def __init__(
+        self,
+        name,
+        type: EntityType,
+        x,
+        y,
+        geometry: Geometry = None,
+        can_move: bool = True,
+        can_collide: bool = True,
+    ):
         self.name = name
         self.type = type
 
@@ -31,15 +43,29 @@ class Entity:
         self.x = x
         self.y = y
 
+
 class BaseAgent(Entity):
 
-    def __init__(self, name, type: EntityType, x: float = 0, y: float = 0, communication: bool = False, geometry=None, **kwargs):
+    def __init__(
+        self,
+        name,
+        type: EntityType,
+        x: float = 0,
+        y: float = 0,
+        communication: bool = False,
+        geometry=None,
+        observation_space: spaces = None,
+        action_space: spaces = None,
+        **kwargs,
+    ):
         super().__init__(name, type, x, y, geometry, True, True)
         # Each agent has a list of preys it can eat and a list of predators that can eat it
         self.preys: list[EntityType] = getattr(kwargs, "preys", [])
         self.predators: list[EntityType] = getattr(kwargs, "predators", [])
 
-        self.action_space = None
+        # Define action and observation spaces
+        self.observation_space = observation_space
+        self.action_space = action_space
         self.communication = communication
 
         self.last_action = None
@@ -47,9 +73,9 @@ class BaseAgent(Entity):
         # self.nn = nn.Sequential(
         #     nn.BatchNorm1d(),
 
-    def step(self, action):
+    def step(self, action: np.ndarray):
         if self.can_move:
-            self.vx, self.vy = action[0]
+            self.vx, self.vy = action[0], action[1]
             self.last_action = action
 
         # TODO: Change communication channels according to the action
