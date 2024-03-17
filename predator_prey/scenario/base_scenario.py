@@ -247,7 +247,7 @@ class SimplePreyPredatorScenario(BaseScenario):
             #         ]
             #     )
 
-        print(f"Reward for {agent.name}: {reward}")
+        # print(f"Reward for {agent.name}: {reward}")
 
         return reward
 
@@ -256,12 +256,12 @@ class SimplePreyPredatorScenario(BaseScenario):
         if agent.type == EntityType("prey"):
             for predator in self.predators:
                 radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
-                print(
-                    [agent.name, int(agent.x), int(agent.y)],
-                    [predator.name, int(predator.x), int(predator.y)],
-                    int(torus_distance(agent, predator, self.width, self.height)),
-                    [int(a) for a in torus_offset(agent, predator, self.width, self.height)]
-                )
+                # print(
+                #     [agent.name, int(agent.x), int(agent.y)],
+                #     [predator.name, int(predator.x), int(predator.y)],
+                #     int(torus_distance(agent, predator, self.width, self.height)),
+                #     [int(a) for a in torus_offset(agent, predator, self.width, self.height)]
+                # )
                 if torus_distance(agent, predator, self.width, self.height) < radius:
                     return True
         return False

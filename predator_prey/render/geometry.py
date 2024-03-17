@@ -52,7 +52,19 @@ class Geometry:
             self.center_point = pyglet.shapes.Circle(self.x, self.y, 2, color=(0, 0, 0), batch=batch)
             self.object = pyglet.shapes.Rectangle(self.x - width//2, self.y - height//2, width, height, color=self.color, batch=batch)
             self.hit_box = pyglet.shapes.Box(self.x - width//2, self.y - height//2, self.width, self.height, color=(0, 0, 0), batch=batch)
-        self.render_box = True
+        self.render_box = False
+
+        # Text element
+        self.label = pyglet.text.Label(
+            text="",
+            x=self.x,
+            y=self.y+self.height//2*1.5,
+            anchor_x="center",
+            anchor_y="center",
+            font_size=10,
+            color=(0, 0, 0, 255),
+            batch=batch
+        )
 
     def set_position(self, x, y):
         self.x = x
@@ -73,9 +85,15 @@ class Geometry:
         self.hit_box._y = (y - self.height//2)
         self.hit_box._create_vertex_list()
 
+        self.label.x = x
+        self.label.y = y+self.height//2*2
+        self.label.text = f"({x:.1f}, {y:.1f})"
+        self.label._update()
 
-    def render(self):
+
+    def render(self, render_box=False):
         self.object.draw()
-        if self.render_box:
+        if render_box:
             self.hit_box.draw()
             self.center_point.draw()
+            self.label.draw()

@@ -11,8 +11,6 @@ if __name__ == "__main__":
     scenario, instance = get_scenarios("simple_prey_predator")
     env = MultiAgentEnvionment(scenario, n_steps=1000)
 
-    print(env.state_size, env.action_size,)
-
     agent = MADDPG(
         env.state_size,
         env.action_size,
@@ -23,8 +21,6 @@ if __name__ == "__main__":
     )
 
     obs, info = env.reset()
-
-    print(obs.shape)
 
     step = 0
     max_steps = 1_000_000_000

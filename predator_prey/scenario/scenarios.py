@@ -11,7 +11,7 @@ from predator_prey.scenario.food_chain_scenario import FoodChainScenario, SIMPLE
 def simple_prey_predator(width: int, height: int) -> BaseScenario:
 
     return SimplePreyPredatorScenario(
-        n_predators=1, n_preys=1, landmarks=[], width=width, height=height
+        n_predators=3, n_preys=1, landmarks=[], width=width, height=height
     )
 
 def food_chain(width: int, height: int) -> BaseScenario:
