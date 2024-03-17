@@ -3,7 +3,7 @@ from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.render.geometry import Geometry, Shape
-from predator_prey.scenario.base_scenario import BaseScenario
+from predator_prey.scenario.base_scenario import BaseScenario, check_collision
 
 from utils import torus_distance, torus_offset
 
@@ -21,10 +21,10 @@ class IFoodChainAgent:
 SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
     EntityType("low_agent"): IFoodChainAgent(
         type=EntityType("low_agent"),
-        preys=[EntityType("high_agent"), EntityType("mid_agent")],
-        predators=[],
+        preys=[],
+        predators=[EntityType("high_agent"), EntityType("mid_agent")],
         color=(0, 0, 255),
-        speed=2,
+        speed=4,
         size=20
     ),
     EntityType("mid_agent"): IFoodChainAgent(
@@ -32,7 +32,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("low_agent")],
         predators=[EntityType("high_agent"), EntityType("super_agent")],
         color=(0, 255, 0),
-        speed=1,
+        speed=6,
         size=12
     ),
     EntityType("high_agent"): IFoodChainAgent(
@@ -40,7 +40,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("low_agent"), EntityType("mid_agent")],
         predators=[],
         color=(255, 0, 0),
-        speed=0.5,
+        speed=1,
         size=10
     ),
     EntityType("super_agent"): IFoodChainAgent(
@@ -48,7 +48,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("mid_agent")],
         predators=[],
         color=(255, 255, 0),
-        speed=1,
+        speed=2,
         size=15
     )
 }
@@ -72,14 +72,12 @@ class FoodChainScenario(BaseScenario):
         self.agents = self._create_agents()
 
     def _create_observation_space(self) -> spaces:
-        low = np.array([-np.inf, -np.inf])
-        high = np.array([np.inf, np.inf])
-        space = spaces.Box(low=low, high=high, shape=(2, ), dtype=np.float32)
+        space = spaces.Box(low=-np.inf, high=np.inf, shape=(2 * (self.n_agents - 1) + 2,), dtype=np.float32)
         return {agent_type: space for agent_type in self.food_chain.keys()}
 
     def _create_action_space(self) -> spaces:
         return {
-            agent_type: spaces.Box(low=-agent.speed, high=+agent.speed, shape=(2 * (self.n_agents - 1) + 2,), dtype=np.float32)
+            agent_type: spaces.Box(low=-agent.speed, high=+agent.speed, shape=(2, ), dtype=np.float32)
             for agent_type, agent in self.food_chain.items()
         }
 
@@ -130,7 +128,7 @@ class FoodChainScenario(BaseScenario):
         beta = 0.1
         for other in self.agents:
             if other != agent:
-                distance = torus_distance(agent.x, agent.y, other.x, other.y, self.width, self.height)
+                distance = torus_distance(agent, other, self.width, self.height)
                 if other.type in agent.preys:
                     reward -= alpha * distance
                 elif other.type in agent.predators:
@@ -140,3 +138,22 @@ class FoodChainScenario(BaseScenario):
     def done(self, agent: BaseAgent) -> bool:
         # For now, we just terminate the episode withouth any condition
         return False
+
+    def step(self):
+        # Simply update the position of the agents based without any physics
+        for agent in self.agents:
+            agent.x += agent.vx * self.food_chain[agent.type].speed
+            agent.y += agent.vy * self.food_chain[agent.type].speed
+
+            # Torus world
+            agent.x %= self.width
+            agent.y %= self.height
+
+            for landmark in self.landmarks:
+                if agent != landmark and landmark.can_collide:
+                    if check_collision(agent, landmark, self.width, self.height, offset=2):
+                        agent.x -= agent.vx
+                        agent.y -= agent.vy
+
+            agent.vx *= self.damping
+            agent.vy *= self.damping

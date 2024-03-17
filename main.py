@@ -7,8 +7,8 @@ from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
-    # scenario, instance = get_scenarios("food_chain")
-    scenario, instance = get_scenarios("simple_prey_predator")
+    scenario, instance = get_scenarios("food_chain", width=1000, height=600)
+    # scenario, instance = get_scenarios("simple_prey_predator")
     env = MultiAgentEnvionment(scenario, n_steps=1000)
 
     agent = MADDPG(
