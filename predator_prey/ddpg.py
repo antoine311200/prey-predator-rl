@@ -104,6 +104,7 @@ class DDPG:
         hidden_size: int,
         n_agents: int,
         gamma: float,
+        tau: float,
         actor_class,
         critic_class,
         device: str = "cpu",
@@ -111,14 +112,17 @@ class DDPG:
         self.state_size = state_size
         self.action_size = action_size
         self.device = device
+
+        # Hyperparameters
         self.gamma = gamma
+        self.tau = tau
 
         # Init models
         self.ou = OrnsteinUhlenbeckActionNoise(mu=np.zeros((action_size,)))
         self.actor = actor_class(state_size, hidden_size, action_size).to(device)
-        self.critic = critic_class(state_size, hidden_size, action_size * n_agents).to(
-            device
-        )
+        self.critic = critic_class(
+            state_size * n_agents, hidden_size * n_agents, action_size * n_agents
+        ).to(device)
 
         self.target_actor = deepcopy(self.actor).to(device)
         self.target_critic = deepcopy(self.critic).to(device)
@@ -134,6 +138,7 @@ class DDPG:
             noise = self.ou()
             noise = torch.FloatTensor(noise).unsqueeze(0).to(self.device)
             action = self.actor(state)
+            # print("action", action)
 
             if explore:
                 action = action + noise
@@ -161,8 +166,9 @@ class DDPG:
     ) -> None:
 
         # Update critic
-        next_q = torch.where(dones, self.target_critic(next_states, target_actions), 0)
-        y = rewards + self.gamma * next_q
+        with torch.no_grad():
+            next_q = self.target_critic(next_states, target_actions)
+            y = rewards + (1 - dones) * self.gamma * next_q
 
         predicted_q = self.critic(states, actions)
         critic_loss = torch.nn.functional.mse_loss(predicted_q, y)
@@ -179,9 +185,19 @@ class DDPG:
         # torch.nn.utils.clip_grad_norm(self.actor.parameters(), 0.5)
         self.actor_optimizer.step()
 
-    def update_actor_target(self) -> None:
-        self.target_critic.load_state_dict(self.critic.state_dict())
-        self.target_actor.load_state_dict(self.actor.state_dict())
+    def update_target(self) -> None:
+        for param, target_param in zip(
+            self.critic.parameters(), self.target_critic.parameters()
+        ):
+            target_param.data.copy_(
+                self.tau * param.data + (1 - self.tau) * target_param.data
+            )
+        for param, target_param in zip(
+            self.actor.parameters(), self.target_actor.parameters()
+        ):
+            target_param.data.copy_(
+                self.tau * param.data + (1 - self.tau) * target_param.data
+            )
 
     def reset(self) -> None:
         self.ou.reset()
@@ -198,6 +214,7 @@ class MADDPG:
         n_agents: int = 1,
         max_buffer_size: int = int(1e6),
         gamma: float = 0.99,
+        tau: float = 0.001,
         batch_size: int = 128,
     ) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -210,6 +227,7 @@ class MADDPG:
                 hidden_size,
                 n_agents,
                 gamma,
+                tau,
                 actor_class,
                 critic_class,
                 self.device,
@@ -268,19 +286,19 @@ class MADDPG:
                 dim=1,
             )
             agent.train(
-                states[:, incr],
+                states,
                 actions,
                 rewards[:, incr],
-                next_states[:, incr],
+                next_states,
                 dones[:, incr],
                 current_action,
                 target_actions,
-                entropy=(current_action[incr] ** 2),
+                entropy=(current_action[:, incr] ** 2),
             )
 
         # Update target networks
         for agent in self.agents:
-            agent.update_actor_target()
+            agent.update_target()
 
     def save(self, path: str) -> None:
         for incr, agent in enumerate(self.agents):
