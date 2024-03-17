@@ -168,7 +168,7 @@ class DDPG:
         # Update critic
         with torch.no_grad():
             next_q = self.target_critic(next_states, target_actions)
-            y = rewards + (1 - dones) * self.gamma * next_q
+            y = rewards + torch.logical_not(dones) * self.gamma * next_q
 
         predicted_q = self.critic(states, actions)
         critic_loss = torch.nn.functional.mse_loss(predicted_q, y)
