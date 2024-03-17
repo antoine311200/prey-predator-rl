@@ -7,11 +7,15 @@ from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
+    # scenario, instance = get_scenarios("food_chain")
     scenario, instance = get_scenarios("simple_prey_predator")
     env = MultiAgentEnvionment(scenario, n_steps=1000)
+
+    print(env.state_size, env.action_size,)
+
     agent = MADDPG(
-        env.observation_space[0].shape[0],
-        env.action_space[0].shape[0],
+        env.state_size,
+        env.action_size,
         hidden_size=64,
         actor_class=Actor,
         critic_class=Critic,
@@ -19,6 +23,8 @@ if __name__ == "__main__":
     )
 
     obs, info = env.reset()
+
+    print(obs.shape)
 
     step = 0
     max_steps = 1_000_000_000
@@ -42,7 +48,7 @@ if __name__ == "__main__":
             obs, info = env.reset()
 
         step += 1
-        print("step:", step, obs[0][0], dones[0])
+        print("Step:", step)#, obs[0][0], dones[0])
 
         if step % 25_000 == 0:
             print("Saving model")
