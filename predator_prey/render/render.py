@@ -46,7 +46,7 @@ class Instance:
                 self.RENDER_GRID = not self.RENDER_GRID
                 print("Render grid:", self.RENDER_GRID, self)
 
-    def render(self, entities):
+    def render(self, entities, landmarks):
         glClearColor(1, 1, 1, 1)
 
         self.window.clear()
@@ -67,8 +67,12 @@ class Instance:
                     line.draw()
 
         for entity in entities:
-            entity.geometry.set_position(entity.x, entity.y)
+            entity.geometry.set_position(entity.x, entity.y, render_box=self.RENDER_HIT_BOX)
             entity.geometry.render(self.RENDER_HIT_BOX)
+
+        for landmark in landmarks:
+            landmark.geometry.set_position(landmark.x, landmark.y, render_box=self.RENDER_HIT_BOX)
+            landmark.geometry.render(self.RENDER_HIT_BOX)
 
         # Draw line between predator to prey
         if self.RENDER_HIT_BOX:

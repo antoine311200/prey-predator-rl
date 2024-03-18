@@ -124,8 +124,8 @@ class DDPG:
         self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)#lr=1e-4)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)#lr=1e-3)
 
     def act(self, state: np.ndarray, explore: bool = False) -> np.ndarray:
         with torch.no_grad():

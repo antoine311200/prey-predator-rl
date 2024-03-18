@@ -43,6 +43,8 @@ class Entity:
         self.x = x
         self.y = y
 
+    def __repr__(self):
+        return f"Entity[{self.type} ({self.x}, {self.y})]"
 
 class BaseAgent(Entity):
 

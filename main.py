@@ -9,7 +9,7 @@ from predator_prey.scenario.scenarios import get_scenarios
 if __name__ == "__main__":
     scenario, instance = get_scenarios("food_chain", width=1000, height=600)
     # scenario, instance = get_scenarios("simple_prey_predator")
-    env = MultiAgentEnvionment(scenario, n_steps=1000)
+    env = MultiAgentEnvionment(scenario, n_steps=250)
 
     agent = MADDPG(
         env.state_size,
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     max_steps = 1_000_000_000
     while step < max_steps:
         if step > 0:
-            instance.render(scenario.entities)
+            instance.render(scenario.agents, scenario.landmarks)
             pyglet.clock.tick()
             if instance.window.has_exit:
                 break

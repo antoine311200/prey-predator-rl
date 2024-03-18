@@ -19,16 +19,6 @@ class MultiAgentEnvionment:
 
         self.state_size = scenario.observation_space[0].shape[0]
         self.action_size = scenario.action_space[0].shape[0]
-        # self.state_size = (
-        #     scenario.observation_space[0].shape[0]
-        #     if isinstance(scenario.observation_space, list) else
-        #     scenario.observation_space[next(iter(scenario.observation_space))].shape[0]
-        # )
-        # self.action_size = (
-        #     scenario.action_space[0].shape[0]
-        #     if isinstance(scenario.action_space, list) else
-        #     scenario.action_space[next(iter(scenario.action_space))].shape[0]
-        # )
 
     def step(
         self, actions: Tuple[np.ndarray, ...]

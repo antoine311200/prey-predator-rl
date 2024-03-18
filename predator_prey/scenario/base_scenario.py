@@ -6,6 +6,12 @@ from gymnasium import spaces
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from utils import torus_distance, torus_offset
 
+# Create enum
+from enum import Enum
+
+class WorldType(Enum):
+    TORUS = "torus"
+    RECTANGLE = "rectangle"
 
 @dataclass
 class ScenarioConfiguration:
@@ -61,9 +67,27 @@ class BaseScenario:
         self.observation_space = observation_space
         self.action_space = action_space
 
+        self.mode = WorldType.TORUS
+
     @property
     def entities(self):
-        return self.agents + self.landmarks
+        return self.agents# + self.landmarks
+
+    def _distance(self, agent1: BaseAgent, agent2: BaseAgent) -> float:
+        if self.mode == WorldType.RECTANGLE:
+            return np.sqrt((agent1.x - agent2.x) ** 2 + (agent1.y - agent2.y) ** 2)
+        elif self.mode == WorldType.TORUS:
+            return torus_distance(agent1, agent2, self.width, self.height)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+    def _offset(self, agent1: BaseAgent, agent2: BaseAgent) -> np.ndarray:
+        if self.mode == WorldType.RECTANGLE:
+            return np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+        elif self.mode == WorldType.TORUS:
+            return torus_offset(agent1, agent2, self.width, self.height)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
 
     def step(self):
         # Simply update the position of the agents based without any physics
@@ -72,8 +96,9 @@ class BaseScenario:
             agent.y += agent.vy * (2 if agent.type == EntityType("predator") else 0)
 
             # Torus world
-            agent.x %= self.width
-            agent.y %= self.height
+            if self.mode == WorldType.TORUS:
+                agent.x %= self.width
+                agent.y %= self.height
 
             for landmark in self.landmarks:
                 if agent != landmark and landmark.can_collide:
