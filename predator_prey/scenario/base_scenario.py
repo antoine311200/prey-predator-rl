@@ -6,6 +6,12 @@ from gymnasium import spaces
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from utils import torus_distance, torus_offset
 
+# Create enum
+from enum import Enum
+
+class WorldType(Enum):
+    TORUS = "torus"
+    RECTANGLE = "rectangle"
 
 @dataclass
 class ScenarioConfiguration:
@@ -19,18 +25,26 @@ class ScenarioConfiguration:
     damping: float = 0.9
 
 
-def check_collision(entity1: Entity, entity2: Entity, total_width: int = int(1e6), total_height: int = int(1e6), offset: int = 0):
+def check_collision(
+    entity1: Entity,
+    entity2: Entity,
+    total_width: int = int(1e6),
+    total_height: int = int(1e6),
+    offset: int = 0,
+):
     width1, height1 = entity1.geometry.width, entity1.geometry.height
     width2, height2 = entity2.geometry.width, entity2.geometry.height
 
-    check_x = (
-        (entity1.x - width1 // 2) % total_width < (entity2.x + width2 // 2) % total_width + offset
-        and (entity1.x + width1 // 2) % total_width > (entity2.x - width2 // 2) % total_width - offset
-    )
-    check_y = (
-        (entity1.y - height1 // 2) % total_height < (entity2.y + height2 // 2) % total_height + offset
-        and (entity1.y + height1 // 2) % total_height > (entity2.y - height2 // 2) % total_height - offset
-    )
+    check_x = (entity1.x - width1 // 2) % total_width < (
+        entity2.x + width2 // 2
+    ) % total_width + offset and (entity1.x + width1 // 2) % total_width > (
+        entity2.x - width2 // 2
+    ) % total_width - offset
+    check_y = (entity1.y - height1 // 2) % total_height < (
+        entity2.y + height2 // 2
+    ) % total_height + offset and (entity1.y + height1 // 2) % total_height > (
+        entity2.y - height2 // 2
+    ) % total_height - offset
 
     if check_x and check_y:
         # print(f"Checking collision between {entity1.name} and {entity2.name}")
@@ -61,25 +75,47 @@ class BaseScenario:
         self.observation_space = observation_space
         self.action_space = action_space
 
+        self.mode = WorldType.TORUS
+
     @property
     def entities(self):
-        return self.agents + self.landmarks
+        return self.agents# + self.landmarks
 
+    def _distance(self, agent1: BaseAgent, agent2: BaseAgent) -> float:
+        if self.mode == WorldType.RECTANGLE:
+            return np.sqrt((agent1.x - agent2.x) ** 2 + (agent1.y - agent2.y) ** 2)
+        elif self.mode == WorldType.TORUS:
+            return torus_distance(agent1, agent2, self.width, self.height)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+    def _offset(self, agent1: BaseAgent, agent2: BaseAgent, norm=False) -> np.ndarray:
+        if self.mode == WorldType.RECTANGLE:
+            offset = np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+        elif self.mode == WorldType.TORUS:
+            offset = torus_offset(agent1, agent2, self.width, self.height)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+        if norm:
+            return offset / np.linalg.norm(offset)
+        return offset
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            agent.x += agent.vx
-            agent.y += agent.vy
+            agent.x += agent.vx * (2 if agent.type == EntityType("predator") else 0)
+            agent.y += agent.vy * (2 if agent.type == EntityType("predator") else 0)
 
             # Torus world
-            agent.x %= self.width
-            agent.y %= self.height
+            if self.mode == WorldType.TORUS:
+                agent.x %= self.width
+                agent.y %= self.height
 
-            # for entity in self.entities:
-            #     if agent != entity and entity.can_collide:
-            #         if check_collision(agent, entity, self.width, self.height, offset=2):
-            #             agent.x -= agent.vx
-            #             agent.y -= agent.vy
+            for landmark in self.landmarks:
+                if agent != landmark and landmark.can_collide:
+                    if check_collision(agent, landmark, self.width, self.height, offset=2):
+                        agent.x -= agent.vx
+                        agent.y -= agent.vy
 
             agent.vx *= self.damping
             agent.vy *= self.damping
@@ -129,12 +165,11 @@ class SimplePreyPredatorScenario(BaseScenario):
             shape=(2 * (n_preys + n_predators - 1) + 2,),
             dtype=np.float32,
         )
-        prey_action_space = spaces.Box(low=-2, high=2, shape=(2,), dtype=np.float32)
+        prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         self.preys = [
             BaseAgent(
                 f"prey_{i}",
                 EntityType("prey"),
-                communicate=False,
                 geometry=prey_geometry,
                 observation_space=prey_observation_space,
                 action_space=prey_action_space,
@@ -142,19 +177,18 @@ class SimplePreyPredatorScenario(BaseScenario):
             for i in range(n_preys)
         ]
         predator_observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
-        )
-        predator_action_space = spaces.Box(
             low=-1,
             high=1,
             shape=(2 * (n_preys + n_predators - 1) + 2,),
             dtype=np.float32,
         )
+        predator_action_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+        )
         self.predators = [
             BaseAgent(
                 f"predator_{i}",
                 EntityType("predator"),
-                communicate=True,
                 geometry=predator_geometry,
                 observation_space=predator_observation_space,
                 action_space=predator_action_space,
@@ -231,12 +265,23 @@ class SimplePreyPredatorScenario(BaseScenario):
                 reward += 0.01 * distance
         else:
             reward = 0
-            reward -= 0.01 * min(
+            distance = min(
                 [
-                    torus_distance(prey, agent, self.width, self.height)
+                    torus_distance(agent, prey, self.width, self.height)
                     for prey in self.preys
                 ]
             )
+            reward -= 0.01 * distance
+            # for pred in self.predators:
+            #     alpha = 0.001 if pred != agent else 0.01
+            #     reward -= alpha * min(
+            #         [
+            #             torus_distance(prey, pred, self.width, self.height)
+            #             for prey in self.preys
+            #         ]
+            #     )
+
+        # print(f"Reward for {agent.name}: {reward}")
 
         return reward
 
@@ -245,7 +290,12 @@ class SimplePreyPredatorScenario(BaseScenario):
         if agent.type == EntityType("prey"):
             for predator in self.predators:
                 radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
-                # print([agent.x, agent.y], [predator.x, predator.y], torus_distance(agent, predator, self.width, self.height), radius)
+                # print(
+                #     [agent.name, int(agent.x), int(agent.y)],
+                #     [predator.name, int(predator.x), int(predator.y)],
+                #     int(torus_distance(agent, predator, self.width, self.height)),
+                #     [int(a) for a in torus_offset(agent, predator, self.width, self.height)]
+                # )
                 if torus_distance(agent, predator, self.width, self.height) < radius:
                     return True
         return False
