@@ -25,18 +25,26 @@ class ScenarioConfiguration:
     damping: float = 0.9
 
 
-def check_collision(entity1: Entity, entity2: Entity, total_width: int = int(1e6), total_height: int = int(1e6), offset: int = 0):
+def check_collision(
+    entity1: Entity,
+    entity2: Entity,
+    total_width: int = int(1e6),
+    total_height: int = int(1e6),
+    offset: int = 0,
+):
     width1, height1 = entity1.geometry.width, entity1.geometry.height
     width2, height2 = entity2.geometry.width, entity2.geometry.height
 
-    check_x = (
-        (entity1.x - width1 // 2) % total_width < (entity2.x + width2 // 2) % total_width + offset
-        and (entity1.x + width1 // 2) % total_width > (entity2.x - width2 // 2) % total_width - offset
-    )
-    check_y = (
-        (entity1.y - height1 // 2) % total_height < (entity2.y + height2 // 2) % total_height + offset
-        and (entity1.y + height1 // 2) % total_height > (entity2.y - height2 // 2) % total_height - offset
-    )
+    check_x = (entity1.x - width1 // 2) % total_width < (
+        entity2.x + width2 // 2
+    ) % total_width + offset and (entity1.x + width1 // 2) % total_width > (
+        entity2.x - width2 // 2
+    ) % total_width - offset
+    check_y = (entity1.y - height1 // 2) % total_height < (
+        entity2.y + height2 // 2
+    ) % total_height + offset and (entity1.y + height1 // 2) % total_height > (
+        entity2.y - height2 // 2
+    ) % total_height - offset
 
     if check_x and check_y:
         # print(f"Checking collision between {entity1.name} and {entity2.name}")
@@ -81,14 +89,17 @@ class BaseScenario:
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 
-    def _offset(self, agent1: BaseAgent, agent2: BaseAgent) -> np.ndarray:
+    def _offset(self, agent1: BaseAgent, agent2: BaseAgent, norm=False) -> np.ndarray:
         if self.mode == WorldType.RECTANGLE:
-            return np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+            offset = np.array([agent1.x - agent2.x, agent1.y - agent2.y])
         elif self.mode == WorldType.TORUS:
-            return torus_offset(agent1, agent2, self.width, self.height)
+            offset = torus_offset(agent1, agent2, self.width, self.height)
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 
+        if norm:
+            return offset / np.linalg.norm(offset)
+        return offset
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
@@ -154,7 +165,7 @@ class SimplePreyPredatorScenario(BaseScenario):
             shape=(2 * (n_preys + n_predators - 1) + 2,),
             dtype=np.float32,
         )
-        prey_action_space = spaces.Box(low=-2, high=2, shape=(2,), dtype=np.float32)
+        prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         self.preys = [
             BaseAgent(
                 f"prey_{i}",

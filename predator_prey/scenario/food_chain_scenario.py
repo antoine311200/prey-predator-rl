@@ -33,7 +33,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("target")],
         predators=[EntityType("high_agent"), EntityType("mid_agent")],
         color=(0, 0, 255),
-        speed=4,
+        speed=10,
         size=20,
     ),
     EntityType("mid_agent"): IFoodChainAgent(
@@ -99,12 +99,12 @@ class FoodChainScenario(BaseScenario):
         self.mode = WorldType.RECTANGLE
 
     def _create_observation_space(self) -> spaces:
-        space = spaces.Box(low=-np.inf, high=np.inf, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
+        space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
         return {agent_type: space for agent_type in self.food_chain.keys()}
 
     def _create_action_space(self) -> spaces:
         return {
-            agent_type: spaces.Box(low=-agent.speed, high=+agent.speed, shape=(2, ), dtype=np.float32)
+            agent_type: spaces.Box(low=-1, high=+1, shape=(2, ), dtype=np.float32)
             for agent_type, agent in self.food_chain.items()
         }
 
@@ -142,11 +142,11 @@ class FoodChainScenario(BaseScenario):
         relative_positions = []
         for other in self.agents:
             if other != agent:
-                print(f"Agent: {agent.type}, Other: {other.type}, Offset: {self._offset(agent, other)}")
-                relative_positions.extend(self._offset(agent, other))
+                # print(f"Agent: {agent.type}, Other: {other.type}, Offset: {self._offset(agent, other, norm=True)}")
+                relative_positions.extend(self._offset(agent, other, norm=True))
 
         for landmark in self.landmarks:
-            relative_positions.extend(self._offset(agent, landmark, self.width, self.height))
+            relative_positions.extend(self._offset(agent, landmark, norm=True))
 
         relative_positions.extend([agent.vx, agent.vy])
         return np.array(relative_positions)
@@ -169,12 +169,7 @@ class FoodChainScenario(BaseScenario):
                     reward += beta * distance
         if len(prey_distances) > 0:
             reward -= alpha * min(prey_distances)
-        print(f"Reward for {agent.type}: {reward}")
-        # Reward based on reaching the target if the agent has a target
-        # for landmark in self.landmarks:
-        #     if landmark.type in self.food_chain[agent.type].targets:
-        #         distance = self._distance(agent, landmark)
-        #         reward += 10 / distance
+
         return reward
 
     def done(self, agent: BaseAgent) -> bool:
