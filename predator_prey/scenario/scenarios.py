@@ -20,7 +20,7 @@ def food_chain(width: int, height: int) -> BaseScenario:
         # landmarks=SIMPLE_LANDMARKS,
         # n_agents={"low_agent": 10, "mid_agent": 5, "high_agent": 3, "super_agent": 1},
         # n_agents={"low_agent": 4, "mid_agent": 1, "high_agent": 2, "super_agent": 1},
-        n_agents={"target": 1, "low_agent": 1, "mid_agent": 0, "high_agent": 0, "super_agent": 0},
+        n_agents={"target": 5, "low_agent": 1, "mid_agent": 0, "high_agent": 0, "super_agent": 0},
         # n_agents={"low_agent": 4, "mid_agent": 2, "high_agent": 0, "super_agent": 1},
         width=width,
         height=height,

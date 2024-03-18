@@ -54,7 +54,6 @@ class BaseAgent(Entity):
         type: EntityType,
         x: float = 0,
         y: float = 0,
-        communication: bool = False,
         geometry=None,
         observation_space: spaces = None,
         action_space: spaces = None,
@@ -68,19 +67,13 @@ class BaseAgent(Entity):
         # Define action and observation spaces
         self.observation_space = observation_space
         self.action_space = action_space
-        self.communication = communication
 
         self.last_action = None
-
-        # self.nn = nn.Sequential(
-        #     nn.BatchNorm1d(),
 
     def step(self, action: np.ndarray):
         if self.can_move:
             self.vx, self.vy = action[0], action[1]
             self.last_action = action
-
-        # TODO: Change communication channels according to the action
 
     def __repr__(self):
         return f"Agent[{self.type} ({self.x}, {self.y})]"

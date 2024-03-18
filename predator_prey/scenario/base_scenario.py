@@ -159,7 +159,6 @@ class SimplePreyPredatorScenario(BaseScenario):
             BaseAgent(
                 f"prey_{i}",
                 EntityType("prey"),
-                communicate=False,
                 geometry=prey_geometry,
                 observation_space=prey_observation_space,
                 action_space=prey_action_space,
@@ -179,7 +178,6 @@ class SimplePreyPredatorScenario(BaseScenario):
             BaseAgent(
                 f"predator_{i}",
                 EntityType("predator"),
-                communicate=True,
                 geometry=predator_geometry,
                 observation_space=predator_observation_space,
                 action_space=predator_action_space,

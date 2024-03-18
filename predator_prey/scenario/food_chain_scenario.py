@@ -157,15 +157,18 @@ class FoodChainScenario(BaseScenario):
         # Alpha and beta are hyperparameters that control the influence of hunting vs staying away
         alpha = 0.01
         beta = 0.01
+
+        prey_distances = []
         for other in self.agents:
             if other != agent:
                 distance = self._distance(agent, other)
-                print(f"Distance between {agent.type} and {other.type}: {distance}")
+                # print(f"Distance between {agent.type} and {other.type}: {distance}")
                 if other.type in self.food_chain[agent.type].preys:
-                    reward -= alpha * distance
+                    prey_distances.append(distance)
                 elif other.type in self.food_chain[agent.type].predators:
                     reward += beta * distance
-
+        if len(prey_distances) > 0:
+            reward -= alpha * min(prey_distances)
         print(f"Reward for {agent.type}: {reward}")
         # Reward based on reaching the target if the agent has a target
         # for landmark in self.landmarks:
