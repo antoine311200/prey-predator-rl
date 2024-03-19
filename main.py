@@ -2,6 +2,8 @@ import time
 
 import numpy as np
 import pyglet
+from matplotlib import pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 
 from predator_prey.ddpg import MADDPG
 from predator_prey.envs import MultiAgentEnvionment
@@ -10,15 +12,11 @@ from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
     # scenario, instance = get_scenarios("food_chain")
-    scenario, instance = get_scenarios("simple_prey_predator")
-    env = MultiAgentEnvionment(scenario, n_steps=1000)
+    writer = SummaryWriter()
+    scenario, instance = get_scenarios("simple_prey_predator", width=400, height=400)
+    env = MultiAgentEnvionment(scenario, n_steps=30)
 
-    print(
-        env.state_size,
-        env.action_size,
-    )
-
-    agent = MADDPG(
+    maddpg = MADDPG(
         env.state_size,
         env.action_size,
         hidden_size=64,
@@ -30,42 +28,86 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     step = 0
-    max_steps = 10_000
-    all_rewards = []
-    cumul_reward = 0
+    max_steps = 30_000
+    eval_every_n_episodes = 10
+    n_episodes = 0
+
+    cumul_train_reward = 0
+    do_one_eval = False
+    start = time.time()
     while step < max_steps:
         # Take action and update environment
-        actions = agent.act(obs, explore=True)
+        actions = maddpg.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        cumul_reward += rewards[1]
+        cumul_train_reward += rewards[1]
         # Convert to numpy arrays for easier handling
         actions = np.array(actions)
-        agent.remember(obs, actions, rewards, dones, next_obs)
-        agent.train()
+        maddpg.remember(obs, actions, rewards, dones, next_obs)
+        losses = maddpg.train()
+        if losses is not None:
+            for incr in range(len(env.agents)):
+                for key, value in losses[incr].items():
+                    writer.add_scalar("losses/" + key, value, step)
         obs = next_obs
         if np.any(dones) or truncated:
-            print("Resetting environment, Reward:", cumul_reward, "Step:", step)
             # Reset
-            agent.reset()
+            maddpg.reset()
             obs, info = env.reset()
-            all_rewards.append(cumul_reward)
-            cumul_reward = 0
+            # Log
+            writer.add_scalar("train_reward", cumul_train_reward, step)
+            writer.add_scalar("time", time.time() - start, step)
+            # Reset counters
+            cumul_train_reward = 0
+            n_episodes += 1
+            if n_episodes % eval_every_n_episodes == 0:
+                do_one_eval = True
+
+        if do_one_eval:
+            obs, info = env.reset()
+            # Init counters
+            cumul_eval_reward = 0
+            episode_len = 0
+            while True:
+                actions = maddpg.act(obs, explore=False)
+                next_obs, rewards, dones, truncated, infos = env.step(actions)
+                obs = next_obs
+                cumul_eval_reward += rewards[1]
+                episode_len += 1
+                if np.any(dones) or truncated:
+                    do_one_eval = False
+                    print(
+                        "Evaluation, Reward:",
+                        cumul_eval_reward,
+                        "Episode length:",
+                        episode_len,
+                        "Step:",
+                        step,
+                    )
+                    # Log
+                    writer.add_scalar("eval_reward", cumul_eval_reward, step)
+                    writer.add_scalar("eval_episode_length", episode_len, step)
+                    maddpg.reset()
+                    obs, info = env.reset()
+                    break
 
         step += 1
         if step % 25_000 == 0:
             print("Saving model")
-            agent.save("test")
+            maddpg.save("test")
 
+    writer.flush()
+    writer.close()
     obs, info = env.reset()
     while True:
         instance.render(scenario.entities)
         pyglet.clock.tick()
         if instance.window.has_exit:
             break
-        time.sleep(0.1)
-        actions = agent.act(obs, explore=False)
+        time.sleep(0.05)
+        actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        print("obs: ", obs[1][:1], "actions: ", actions[1], "rewards: ", rewards[1])
+        print("obs: ", obs[1][:2], "actions: ", actions[1], "rewards: ", rewards[1])
         obs = next_obs
         if np.any(dones) or truncated:
+            maddpg.reset()
             obs, info = env.reset()
