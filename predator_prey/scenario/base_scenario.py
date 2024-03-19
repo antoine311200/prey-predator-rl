@@ -76,8 +76,12 @@ class BaseScenario:
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            agent.x += agent.vx * (2 if agent.type == EntityType("predator") else 0)
-            agent.y += agent.vy * (2 if agent.type == EntityType("predator") else 0)
+            agent.x += (
+                agent.vx * (2 if agent.type == EntityType("predator") else 0) * 10
+            )
+            agent.y += (
+                agent.vy * (2 if agent.type == EntityType("predator") else 0) * 10
+            )
 
             # Torus world
             agent.x %= self.width
@@ -282,8 +286,6 @@ class SimplePreyPredatorScenario(BaseScenario):
                 #    int(torus_distance(agent, predator, self.width, self.height)),
                 #    [int(a) for a in torus_offset(agent, predator, self.width, self.height)]
                 # )
-                # For the moment the reward cannot handle a premature done
-                return False
                 if torus_distance(agent, predator, self.width, self.height) < radius:
                     return True
         return False
