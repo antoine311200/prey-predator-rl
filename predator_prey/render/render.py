@@ -1,7 +1,6 @@
+import numpy as np
 import pyglet
 from pyglet.gl import *
-
-import numpy as np
 
 # Class taken from OpenAI's gym
 RAD2DEG = 57.29577951308232
@@ -26,7 +25,6 @@ class Instance:
         self.window = pyglet.window.Window(width=self.width, height=self.height)
         self.window.set_caption("Predator Prey")
         self.window.on_close = self.close
-
 
     def render(self, entities):
         glClearColor(1, 1, 1, 1)

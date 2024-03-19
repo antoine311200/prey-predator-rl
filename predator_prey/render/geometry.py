@@ -1,7 +1,8 @@
-import pyglet
-
 # Create Enum of shapes
 from enum import Enum
+
+import pyglet
+
 
 class Shape(Enum):
     CIRCLE = 1
@@ -9,9 +10,18 @@ class Shape(Enum):
     TRIANGLE = 3
     RECTANGLE = 4
 
+
 class Geometry:
 
-    def __init__(self, shape: Shape, color: tuple, x: float = 0, y: float = 0, batch: pyglet.graphics.Batch = None, **kwargs):
+    def __init__(
+        self,
+        shape: Shape,
+        color: tuple,
+        x: float = 0,
+        y: float = 0,
+        batch: pyglet.graphics.Batch = None,
+        **kwargs
+    ):
         self.shape = shape
         self.color = color
         self.x = x
@@ -24,20 +34,49 @@ class Geometry:
             self.width = radius * 2
             self.height = radius * 2
 
-            self.center_point = pyglet.shapes.Circle(self.x, self.y, 2, color=(0, 0, 0), batch=batch)
-            self.object = pyglet.shapes.Circle(self.x, self.y, radius, color=self.color, batch=batch)
-            self.hit_box = pyglet.shapes.Box(self.x + self.width//2, self.y + self.height // 2, self.width, self.height, color=(0, 0, 0), batch=batch)
+            self.center_point = pyglet.shapes.Circle(
+                self.x, self.y, 2, color=(0, 0, 0), batch=batch
+            )
+            self.object = pyglet.shapes.Circle(
+                self.x, self.y, radius, color=self.color, batch=batch
+            )
+            self.hit_box = pyglet.shapes.Box(
+                self.x + self.width // 2,
+                self.y + self.height // 2,
+                self.width,
+                self.height,
+                color=(0, 0, 0),
+                batch=batch,
+            )
         elif self.shape == Shape.SQUARE:
             # Set width and height for collision detection
             size = kwargs.get("size", 10)
             self.width = size
             self.height = size
 
-            self.object = pyglet.shapes.Rectangle(self.x, self.y, size, size, color=self.color, batch=batch)
-            self.hit_box = pyglet.shapes.Box(self.x - self.width//2, self.y - self.height // 2, self.width, self.height, color=(0, 0, 0), batch=batch)
+            self.object = pyglet.shapes.Rectangle(
+                self.x, self.y, size, size, color=self.color, batch=batch
+            )
+            self.hit_box = pyglet.shapes.Box(
+                self.x - self.width // 2,
+                self.y - self.height // 2,
+                self.width,
+                self.height,
+                color=(0, 0, 0),
+                batch=batch,
+            )
         elif self.shape == Shape.TRIANGLE:
             high = kwargs.get("high", 10)
-            self.object = pyglet.shapes.Triangle(self.x, self.y, self.x + high, self.y, self.x + high/2, self.y + high, color=self.color, batch=batch)
+            self.object = pyglet.shapes.Triangle(
+                self.x,
+                self.y,
+                self.x + high,
+                self.y,
+                self.x + high / 2,
+                self.y + high,
+                color=self.color,
+                batch=batch,
+            )
             # Set width and height for collision detection
             self.width = high
             self.height = high
@@ -49,9 +88,25 @@ class Geometry:
             self.height = height
 
             # self.center_point = pyglet.shapes.Circle(10, 10, 2, color=(0, 0, 0), batch=batch)
-            self.center_point = pyglet.shapes.Circle(self.x, self.y, 2, color=(0, 0, 0), batch=batch)
-            self.object = pyglet.shapes.Rectangle(self.x - width//2, self.y - height//2, width, height, color=self.color, batch=batch)
-            self.hit_box = pyglet.shapes.Box(self.x - width//2, self.y - height//2, self.width, self.height, color=(0, 0, 0), batch=batch)
+            self.center_point = pyglet.shapes.Circle(
+                self.x, self.y, 2, color=(0, 0, 0), batch=batch
+            )
+            self.object = pyglet.shapes.Rectangle(
+                self.x - width // 2,
+                self.y - height // 2,
+                width,
+                height,
+                color=self.color,
+                batch=batch,
+            )
+            self.hit_box = pyglet.shapes.Box(
+                self.x - width // 2,
+                self.y - height // 2,
+                self.width,
+                self.height,
+                color=(0, 0, 0),
+                batch=batch,
+            )
         self.render_box = True
 
     def set_position(self, x, y):
@@ -64,15 +119,14 @@ class Geometry:
             self.object._x = x
             self.object._y = y
         else:
-            self.object._x = (x - self.width//2)
-            self.object._y = (y - self.height//2)
+            self.object._x = x - self.width // 2
+            self.object._y = y - self.height // 2
         self.object._create_vertex_list()
         self.center_point._create_vertex_list()
 
-        self.hit_box._x = (x - self.width//2)
-        self.hit_box._y = (y - self.height//2)
+        self.hit_box._x = x - self.width // 2
+        self.hit_box._y = y - self.height // 2
         self.hit_box._create_vertex_list()
-
 
     def render(self):
         self.object.draw()

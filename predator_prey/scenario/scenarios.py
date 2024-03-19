@@ -5,7 +5,10 @@ from predator_prey.render.geometry import Geometry, Shape
 from predator_prey.render.render import Instance
 from predator_prey.scenario import SimplePreyPredatorScenario
 from predator_prey.scenario.base_scenario import BaseScenario
-from predator_prey.scenario.food_chain_scenario import FoodChainScenario, SIMPLE_FOODCHAIN_RELATIONS
+from predator_prey.scenario.food_chain_scenario import (
+    SIMPLE_FOODCHAIN_RELATIONS,
+    FoodChainScenario,
+)
 
 
 def simple_prey_predator(width: int, height: int) -> BaseScenario:
@@ -13,6 +16,7 @@ def simple_prey_predator(width: int, height: int) -> BaseScenario:
     return SimplePreyPredatorScenario(
         n_predators=1, n_preys=1, landmarks=[], width=width, height=height
     )
+
 
 def food_chain(width: int, height: int) -> BaseScenario:
     return FoodChainScenario(
