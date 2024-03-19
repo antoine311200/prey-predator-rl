@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -107,7 +107,7 @@ class DDPG:
         tau: float,
         actor_class,
         critic_class,
-        device: str = "cpu",
+        device,
     ) -> None:
         self.state_size = state_size
         self.action_size = action_size
@@ -128,8 +128,8 @@ class DDPG:
         self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-2)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
     def act(self, state: np.ndarray, explore: bool = False) -> np.ndarray:
         with torch.no_grad():
@@ -163,7 +163,7 @@ class DDPG:
         current_actions: torch.Tensor,
         target_actions: torch.Tensor,
         entropy: torch.Tensor,
-    ) -> None:
+    ) -> Dict[str, float]:
 
         # Update critic
         with torch.no_grad():
@@ -184,6 +184,8 @@ class DDPG:
         actor_loss.backward()
         torch.nn.utils.clip_grad_norm(self.actor.parameters(), 0.5)
         self.actor_optimizer.step()
+
+        return {"actor_loss": actor_loss.item(), "critic_loss": critic_loss.item()}
 
     def update_target(self) -> None:
         for param, target_param in zip(
@@ -215,7 +217,9 @@ class MADDPG:
         max_buffer_size: int = int(1e6),
         gamma: float = 0.99,
         tau: float = 0.001,
-        batch_size: int = 128,
+        batch_size: int = 256,
+        warmup_steps: int = 1000,
+        train_every_n_steps: int = 10,
     ) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.rb = ReplayBuffer(state_size, action_size, n_agents, max_buffer_size)
@@ -237,7 +241,8 @@ class MADDPG:
 
         # Hyperparameters
         self.batch_size = batch_size
-        self.update_target_every = 100
+        self.warmup_steps = warmup_steps
+        self.train_every_n_steps = train_every_n_steps
 
         # Init incrementing variables
         self.train_step = 0
@@ -254,12 +259,12 @@ class MADDPG:
     def remember(self, state, action, reward, done, next_state):
         self.rb.remember(state, action, reward, done, next_state)
 
-    def train(self):
+    def train(self) -> Optional[List[Dict[str, float]]]:
         self.train_step += 1
         # We don't update every step
         if (
-            self.rb.size < self.batch_size
-            or self.train_step % self.update_target_every != 0
+            self.train_step < max(self.warmup_steps, self.rb.size)
+            or self.train_step % self.train_every_n_steps != 0
         ):
             return
         states, actions, rewards, dones, next_states = self.rb.sample(self.batch_size)
@@ -268,6 +273,7 @@ class MADDPG:
         rewards = rewards.to(self.device)
         next_states = next_states.to(self.device)
         dones = dones.to(self.device)
+        losses = []
         for incr, agent in enumerate(self.agents):
             # Get the actions of all agents
             current_action = torch.stack(
@@ -285,7 +291,7 @@ class MADDPG:
                 ],
                 dim=1,
             )
-            agent.train(
+            loss = agent.train(
                 states,
                 actions,
                 rewards[:, incr],
@@ -295,10 +301,15 @@ class MADDPG:
                 target_actions,
                 entropy=(current_action[:, incr] ** 2),
             )
+            losses.append(loss)
 
         # Update target networks
         for agent in self.agents:
             agent.update_target()
+
+        if losses[0] == None:
+            return
+        return losses
 
     def save(self, path: str) -> None:
         for incr, agent in enumerate(self.agents):
