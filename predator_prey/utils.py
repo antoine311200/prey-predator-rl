@@ -5,11 +5,15 @@ def torus_offset(entity1, entity2, width, height, normalized=False):
     dx = entity1.x - entity2.x
     dy = entity1.y - entity2.y
     # Wrap around horizontally
-    if abs(dx) > width / 2:
+    if dx > width / 2:
         dx = width - dx
+    elif dx < -width / 2:
+        dx = width + dx
     # Wrap around vertically
-    if abs(dy) > height / 2:
+    if dy > height / 2:
         dy = height - dy
+    elif dy < -height / 2:
+        dy = height + dy
     if normalized:
         dx = dx / (width / 2)
         dy = dy / (height / 2)

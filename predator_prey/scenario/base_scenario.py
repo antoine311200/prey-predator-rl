@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
-from utils import torus_distance, torus_offset
+from predator_prey.utils import torus_distance, torus_offset
 
 
 @dataclass

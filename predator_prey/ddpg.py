@@ -128,8 +128,8 @@ class DDPG:
         self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-2)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
 
     def act(self, state: np.ndarray, explore: bool = False) -> np.ndarray:
         with torch.no_grad():
@@ -174,7 +174,7 @@ class DDPG:
         critic_loss = torch.nn.functional.mse_loss(predicted_q, y)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm(self.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm(self.critic.parameters(), 0.5)
         self.critic_optimizer.step()
 
         # Update actor
@@ -182,7 +182,7 @@ class DDPG:
         actor_loss += entropy.mean() * 1e-3
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        # torch.nn.utils.clip_grad_norm(self.actor.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm(self.actor.parameters(), 0.5)
         self.actor_optimizer.step()
 
     def update_target(self) -> None:

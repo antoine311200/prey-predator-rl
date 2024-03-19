@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pyglet
 
@@ -28,16 +30,10 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     step = 0
-    max_steps = 1_000_000_000
+    max_steps = 10_000
     all_rewards = []
     cumul_reward = 0
     while step < max_steps:
-        if step > 50_000:
-            instance.render(scenario.entities)
-            pyglet.clock.tick()
-            if instance.window.has_exit:
-                break
-
         # Take action and update environment
         actions = agent.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
@@ -59,3 +55,17 @@ if __name__ == "__main__":
         if step % 25_000 == 0:
             print("Saving model")
             agent.save("test")
+
+    obs, info = env.reset()
+    while True:
+        instance.render(scenario.entities)
+        pyglet.clock.tick()
+        if instance.window.has_exit:
+            break
+        time.sleep(0.1)
+        actions = agent.act(obs, explore=False)
+        next_obs, rewards, dones, truncated, infos = env.step(actions)
+        print("obs: ", obs[1][:1], "actions: ", actions[1], "rewards: ", rewards[1])
+        obs = next_obs
+        if np.any(dones) or truncated:
+            obs, info = env.reset()
