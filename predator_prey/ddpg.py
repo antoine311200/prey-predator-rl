@@ -218,7 +218,7 @@ class MADDPG:
         gamma: float = 0.99,
         tau: float = 0.001,
         batch_size: int = 256,
-        warmup_steps: int = 1000,
+        warmup_steps: int = 1_000,
         train_every_n_steps: int = 10,
     ) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"

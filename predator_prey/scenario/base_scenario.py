@@ -251,25 +251,23 @@ class SimplePreyPredatorScenario(BaseScenario):
                     agent, predator, self.width, self.height, normalized=True
                 )
                 reward += 0.1 * distance
+                if self.is_caught(agent, predator):
+                    reward -= 10
         else:
             reward = 0
-            distance = min(
-                [
-                    torus_distance(
-                        agent, prey, self.width, self.height, normalized=True
-                    )
-                    for prey in self.preys
-                ]
-            )
-            reward -= 0.1 * distance
-            # for pred in self.predators:
-            #     alpha = 0.001 if pred != agent else 0.01
-            #     reward -= alpha * min(
-            #         [
-            #             torus_distance(prey, pred, self.width, self.height)
-            #             for prey in self.preys
-            #         ]
-            #     )
+            for pred in self.predators:
+                alpha = 0.1
+                reward -= alpha * min(
+                    [
+                        torus_distance(
+                            prey, pred, self.width, self.height, normalized=True
+                        )
+                        for prey in self.preys
+                    ]
+                )
+                for prey in self.preys:
+                    if self.is_caught(prey, pred):
+                        reward += 10
 
         # print(f"Reward for {agent.name}: {reward}")
 
@@ -279,13 +277,10 @@ class SimplePreyPredatorScenario(BaseScenario):
         # If the agent is a prey, it is done if it is caught by a predator
         if agent.type == EntityType("prey"):
             for predator in self.predators:
-                radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
-                # print(
-                #    [agent.name, int(agent.x), int(agent.y)],
-                #    [predator.name, int(predator.x), int(predator.y)],
-                #    int(torus_distance(agent, predator, self.width, self.height)),
-                #    [int(a) for a in torus_offset(agent, predator, self.width, self.height)]
-                # )
-                if torus_distance(agent, predator, self.width, self.height) < radius:
+                if self.is_caught(agent, predator):
                     return True
         return False
+
+    def is_caught(self, agent, predator):
+        radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
+        return torus_distance(agent, predator, self.width, self.height) < radius
