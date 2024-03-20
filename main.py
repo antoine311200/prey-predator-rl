@@ -13,7 +13,7 @@ from predator_prey.scenario.scenarios import get_scenarios
 if __name__ == "__main__":
     # scenario, instance = get_scenarios("food_chain")
     writer = SummaryWriter()
-    scenario, instance = get_scenarios("simple_prey_predator", width=400, height=400)
+    scenario, instance = get_scenarios("prey_predators", width=400, height=400)
     env = MultiAgentEnvionment(scenario, n_steps=30)
 
     maddpg = MADDPG(
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     step = 0
-    max_steps = 30_000
+    max_steps = 100_000
     eval_every_n_episodes = 10
     n_episodes = 0
 
@@ -97,9 +97,21 @@ if __name__ == "__main__":
 
     writer.flush()
     writer.close()
+    # Save render in tensorboard folder
+    folder_to_save = writer.log_dir
+
+    n_episode_render = 3
+    incr_episode_render = 0
+    incr_render = 0
     obs, info = env.reset()
     while True:
+        # Render
         instance.render(scenario.entities)
+        if incr_episode_render < n_episode_render:
+            instance.save_render(
+                folder_to_save + f"/render_{incr_episode_render}_{incr_render}.png"
+            )
+        incr_render += 1
         pyglet.clock.tick()
         if instance.window.has_exit:
             break
@@ -111,3 +123,5 @@ if __name__ == "__main__":
         if np.any(dones) or truncated:
             maddpg.reset()
             obs, info = env.reset()
+            incr_episode_render += 1
+            incr_render = 0

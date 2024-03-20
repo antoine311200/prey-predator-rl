@@ -18,6 +18,13 @@ def simple_prey_predator(width: int, height: int) -> BaseScenario:
     )
 
 
+def prey_predators(width: int, height: int) -> BaseScenario:
+
+    return SimplePreyPredatorScenario(
+        n_predators=3, n_preys=1, landmarks=[], width=width, height=height
+    )
+
+
 def food_chain(width: int, height: int) -> BaseScenario:
     return FoodChainScenario(
         food_chain=SIMPLE_FOODCHAIN_RELATIONS,
@@ -34,6 +41,10 @@ def get_scenarios(
     if name == "simple_prey_predator":
         instance = Instance(width, height)
         scenario = simple_prey_predator(width, height)
+        return scenario, instance
+    elif name == "prey_predators":
+        instance = Instance(width, height)
+        scenario = prey_predators(width, height)
         return scenario, instance
     elif name == "food_chain":
         instance = Instance(width, height)

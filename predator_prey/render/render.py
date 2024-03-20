@@ -26,7 +26,10 @@ class Instance:
         self.window.set_caption("Predator Prey")
         self.window.on_close = self.close
 
-    def render(self, entities):
+    def render(
+        self,
+        entities,
+    ):
         glClearColor(1, 1, 1, 1)
 
         self.window.clear()
@@ -39,8 +42,10 @@ class Instance:
 
         # Draw a line to indicate the scale
         # pyglet.shapes.Line(10, 10, 50, 10, width=1, color=(0, 0, 0), batch=self.batch).draw()
-
         self.window.flip()
+
+    def save_render(self, filename):
+        pyglet.image.get_buffer_manager().get_color_buffer().save(filename)
 
     def close(self):
         self.window.close()

@@ -77,10 +77,10 @@ class BaseScenario:
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
             agent.x += (
-                agent.vx * (2 if agent.type == EntityType("predator") else 0) * 10
+                agent.vx * (2 if agent.type == EntityType("predator") else 1) * 10
             )
             agent.y += (
-                agent.vy * (2 if agent.type == EntityType("predator") else 0) * 10
+                agent.vy * (2 if agent.type == EntityType("predator") else 1) * 10
             )
 
             # Torus world
