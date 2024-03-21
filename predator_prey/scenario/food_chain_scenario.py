@@ -1,13 +1,13 @@
+from dataclasses import dataclass, field
+
 import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.render.geometry import Geometry, Shape
-from predator_prey.scenario.base_scenario import BaseScenario, check_collision, WorldType
+from predator_prey.scenario.base_scenario import BaseScenario, WorldType
+from predator_prey.utils import torus_distance, torus_offset
 
-from utils import torus_distance, torus_offset
-
-from dataclasses import dataclass, field
 
 @dataclass
 class IFoodChainAgent:
@@ -18,6 +18,7 @@ class IFoodChainAgent:
     speed: float
     size: int
     targets: list[EntityType] = field(default_factory=list)
+
 
 SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
     EntityType("target"): IFoodChainAgent(
@@ -79,7 +80,14 @@ SIMPLE_LANDMARKS = [
 
 class FoodChainScenario(BaseScenario):
 
-    def __init__(self, food_chain: dict[EntityType, IFoodChainAgent], n_agents: dict[str, int], width: int, height: int, landmarks: list[Entity] = None):
+    def __init__(
+        self,
+        food_chain: dict[EntityType, IFoodChainAgent],
+        n_agents: dict[str, int],
+        width: int,
+        height: int,
+        landmarks: list[Entity] = None,
+    ):
         self.food_chain = food_chain
         self.agents_per_type = n_agents
         self.width = width
@@ -96,7 +104,7 @@ class FoodChainScenario(BaseScenario):
         self.action_space = []
         self.agents = self._create_agents()
 
-        self.mode = WorldType.RECTANGLE
+        self.mode = WorldType.TORUS
 
     def _create_observation_space(self) -> spaces:
         space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
@@ -113,7 +121,9 @@ class FoodChainScenario(BaseScenario):
         for agent_type, n in self.agents_per_type.items():
             for i in range(n):
                 agent = self.food_chain[agent_type]
-                geometry = Geometry(Shape.CIRCLE, color=agent.color, x=0, y=0, radius=agent.size)
+                geometry = Geometry(
+                    Shape.CIRCLE, color=agent.color, x=0, y=0, radius=agent.size
+                )
                 observation_space = self.observation_space_by_type[agent_type]
                 action_space = self.action_space_by_type[agent_type]
                 agents.append(
@@ -124,7 +134,7 @@ class FoodChainScenario(BaseScenario):
                         observation_space=observation_space,
                         action_space=action_space,
                         preys=agent.preys,
-                        predators=agent.predators
+                        predators=agent.predators,
                     )
                 )
                 self.observation_space.append(observation_space)
@@ -143,10 +153,10 @@ class FoodChainScenario(BaseScenario):
         for other in self.agents:
             if other != agent:
                 # print(f"Agent: {agent.type}, Other: {other.type}, Offset: {self._offset(agent, other, norm=True)}")
-                relative_positions.extend(self._offset(agent, other, norm=True))
+                relative_positions.extend(self._offset(agent, other, scaled=True))
 
         for landmark in self.landmarks:
-            relative_positions.extend(self._offset(agent, landmark, norm=True))
+            relative_positions.extend(self._offset(agent, landmark, scaled=True))
 
         relative_positions.extend([agent.vx, agent.vy])
         return np.array(relative_positions)
@@ -155,20 +165,32 @@ class FoodChainScenario(BaseScenario):
         # Reward base on maximizing the distance to predators and minimizing the distance to preys
         reward = 0
         # Alpha and beta are hyperparameters that control the influence of hunting vs staying away
-        alpha = 0.01
-        beta = 0.01
+        alpha = 0.1
+        beta = 0.1
 
         prey_distances = []
         for other in self.agents:
             if other != agent:
-                distance = self._distance(agent, other)
-                # print(f"Distance between {agent.type} and {other.type}: {distance}")
+                distance = self._distance(agent, other, scaled=True)
+                # Need to compute the distance between all agents by type and relation as well as caught for each step
+                # To simplify the reward function per agent
                 if other.type in self.food_chain[agent.type].preys:
-                    prey_distances.append(distance)
+                    agent_species = [a for a in self.agents if a.type == agent.type]
+                    prey_species = [a for a in self.agents if a.type == other.type]
+
+                    for pred in agent_species:
+                        reward -= alpha * min([self._distance(pred, prey, scaled=True) for prey in prey_species])
+                    for prey in prey_species:
+                        for pred in agent_species:
+                            if self.is_caught(pred, prey):
+                                # print(f"{pred.type} caught {prey.type}")
+                                reward += 10
                 elif other.type in self.food_chain[agent.type].predators:
                     reward += beta * distance
-        if len(prey_distances) > 0:
-            reward -= alpha * min(prey_distances)
+                    if self.is_caught(agent, other):
+                        reward -= 10
+        # if len(prey_distances) > 0:
+        #     reward -= alpha * min(prey_distances)
 
         return reward
 
@@ -179,19 +201,8 @@ class FoodChainScenario(BaseScenario):
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            # action = np.array([agent.vx, agent.vy])
-            # action /= self.food_chain[agent.type].speed
-            # # Normalize the action vector nay need to be changed
-            # # Divide the action so that the norm is clipped to the speed of the agent but not necessarily constant between steps
-            # action = np.array([
-            #     agent.vx * np.sqrt(1-agent.vy**2/2),
-            #     agent.vy * np.sqrt(1-agent.vx**2/2)
-            # ])
-            # action *= np.sqrt(self.food_chain[agent.type].speed)
-            # agent.vx, agent.vy = action
-
-            agent.x += agent.vx * self.food_chain[agent.type].speed
-            agent.y += agent.vy * self.food_chain[agent.type].speed
+            agent.x += agent.vx * self.food_chain[agent.type].speed * 5
+            agent.y += agent.vy * self.food_chain[agent.type].speed * 5
 
             # Torus world
             if self.mode == WorldType.TORUS:

@@ -1,9 +1,6 @@
+import numpy as np
 import pyglet
 from pyglet.gl import *
-
-import numpy as np
-
-from utils import torus_distance, torus_offset
 
 # Class taken from OpenAI's gym
 RAD2DEG = 57.29577951308232
@@ -111,6 +108,9 @@ class Instance:
                     line.draw()
 
         self.window.flip()
+
+    def save_render(self, filename):
+        pyglet.image.get_buffer_manager().get_color_buffer().save(filename)
 
     def close(self):
         self.window.close()
