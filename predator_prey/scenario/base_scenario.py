@@ -1,17 +1,19 @@
 from dataclasses import dataclass
 
+# Create enum
+from enum import Enum
+
 import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.utils import torus_distance, torus_offset
 
-# Create enum
-from enum import Enum
 
 class WorldType(Enum):
     TORUS = "torus"
     RECTANGLE = "rectangle"
+
 
 @dataclass
 class ScenarioConfiguration:
@@ -79,14 +81,16 @@ class BaseScenario:
 
     @property
     def entities(self):
-        return self.agents# + self.landmarks
+        return self.agents  # + self.landmarks
 
     def _distance(self, agent1: BaseAgent, agent2: BaseAgent, scaled=False) -> float:
         if self.mode == WorldType.RECTANGLE:
             offset = self._offset(agent1, agent2, scaled=scaled)
             return np.sqrt(offset[0] ** 2 + offset[1] ** 2)
         elif self.mode == WorldType.TORUS:
-            return torus_distance(agent1, agent2, self.width, self.height, normalized=scaled)
+            return torus_distance(
+                agent1, agent2, self.width, self.height, normalized=scaled
+            )
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 
@@ -99,8 +103,8 @@ class BaseScenario:
             raise ValueError(f"Unknown mode: {self.mode}")
 
         if scaled:
-            offset[0] /= (self.width / 2)
-            offset[1] /= (self.height / 2)
+            offset[0] /= self.width / 2
+            offset[1] /= self.height / 2
 
         return offset
 
@@ -157,7 +161,6 @@ class BaseScenario:
         return self._distance(agent, predator) < radius
 
 
-
 from predator_prey.render.geometry import Geometry, Shape
 
 
@@ -170,11 +173,14 @@ class SimplePreyPredatorScenario(BaseScenario):
         width: int,
         height: int,
         landmarks: list[Entity] = None,
+        radius: int = 10,
     ):
 
-        prey_geometry = Geometry(Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=10)
+        prey_geometry = Geometry(
+            Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=radius
+        )
         predator_geometry = Geometry(
-            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=10
+            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=radius
         )
 
         # Create a list of agent preys and predators
@@ -262,9 +268,7 @@ class SimplePreyPredatorScenario(BaseScenario):
                 )
 
         for landmark in self.landmarks:
-            rel_entity_positions.extend(
-                self._offset(agent, landmark, scaled=True)
-            )
+            rel_entity_positions.extend(self._offset(agent, landmark, scaled=True))
 
         # Add agent velocity
         rel_entity_positions.extend([agent.vx, agent.vy])
@@ -321,6 +325,6 @@ class SimplePreyPredatorScenario(BaseScenario):
         return False
 
     def is_caught(self, agent, predator):
-        radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
+        radius = agent.geometry.width / 2 + predator.geometry.width / 2
         # return torus_distance(agent, predator, self.width, self.height) < radius
         return self._distance(agent, predator) < radius

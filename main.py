@@ -31,8 +31,8 @@ if __name__ == "__main__":
     else:
         writer = None
     # scenario, instance = get_scenarios("food_chain")
-    # scenario, instance = get_scenarios("prey_predators", width=500, height=500)
-    scenario, instance = get_scenarios("food_chain", width=400, height=400)
+    # scenario, instance = get_scenarios("food_chain", width=400, height=400)
+    scenario, instance = get_scenarios("very_big_prey_predators", width=500, height=500)
     env = MultiAgentEnvionment(scenario, n_steps=100)
 
     maddpg = MADDPG(
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     step = 0
-    max_steps = 50_000
+    max_steps = 1_000
     eval_every_n_episodes = 10
     n_episodes = 0
 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
         pyglet.clock.tick()
         if instance.window.has_exit:
             break
-        time.sleep(0.05)
+        time.sleep(0.07)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
         print("obs: ", obs[1][:2], "actions: ", actions[1], "rewards: ", rewards[1])
