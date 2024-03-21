@@ -6,12 +6,12 @@ def torus_offset(entity1, entity2, width, height, normalized=False):
     dy = entity1.y - entity2.y
     # Wrap around horizontally
     if dx > width / 2:
-        dx = width - dx
+        dx = dx - width
     elif dx < -width / 2:
         dx = width + dx
     # Wrap around vertically
     if dy > height / 2:
-        dy = height - dy
+        dy = dy - height
     elif dy < -height / 2:
         dy = height + dy
     if normalized:

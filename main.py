@@ -28,7 +28,7 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     step = 0
-    max_steps = 100_000
+    max_steps = 200_000
     eval_every_n_episodes = 10
     n_episodes = 0
 
