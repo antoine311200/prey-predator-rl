@@ -3,16 +3,34 @@ import time
 import numpy as np
 import pyglet
 from matplotlib import pyplot as plt
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from predator_prey.ddpg import MADDPG
 from predator_prey.envs import MultiAgentEnvionment
 from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
+
+def push_scalar(writer, key, value, step):
+    if writer is None:
+        return
+    writer.add_scalar(key, value, step)
+
+
+def close_writer(writer):
+    if writer is None:
+        return
+    writer.flush()
+    writer.close()
+
+
 if __name__ == "__main__":
+    use_writer = False
+    if use_writer:
+        writer = SummaryWriter()
+    else:
+        writer = None
     # scenario, instance = get_scenarios("food_chain")
-    # writer = SummaryWriter()
     # scenario, instance = get_scenarios("prey_predators", width=500, height=500)
     scenario, instance = get_scenarios("food_chain", width=400, height=400)
     env = MultiAgentEnvionment(scenario, n_steps=100)
@@ -45,18 +63,18 @@ if __name__ == "__main__":
         actions = np.array(actions)
         maddpg.remember(obs, actions, rewards, dones, next_obs)
         losses = maddpg.train()
-        # if losses is not None:
-        #     for incr in range(len(env.agents)):
-        #         for key, value in losses[incr].items():
-        #             writer.add_scalar("losses/" + key, value, step)
+        if losses is not None:
+            for incr in range(len(env.agents)):
+                for key, value in losses[incr].items():
+                    push_scalar(writer, "losses/" + key, value, step)
         obs = next_obs
         if np.any(dones) or truncated:
             # Reset
             maddpg.reset()
             obs, info = env.reset()
             # Log
-            # writer.add_scalar("train_reward", cumul_train_reward, step)
-            # writer.add_scalar("time", time.time() - start, step)
+            push_scalar(writer, "train_reward", cumul_train_reward, step)
+            push_scalar(writer, "time", time.time() - start, step)
             # Reset counters
             cumul_train_reward = 0
             n_episodes += 1
@@ -85,8 +103,8 @@ if __name__ == "__main__":
                         step,
                     )
                     # Log
-                    # writer.add_scalar("eval_reward", cumul_eval_reward, step)
-                    # writer.add_scalar("eval_episode_length", episode_len, step)
+                    push_scalar(writer, "eval_reward", cumul_eval_reward, step)
+                    push_scalar(writer, "eval_episode_length", episode_len, step)
                     maddpg.reset()
                     obs, info = env.reset()
                     break
@@ -96,8 +114,7 @@ if __name__ == "__main__":
             print("Saving model")
             maddpg.save("test")
 
-    # writer.flush()
-    # writer.close()
+    close_writer(writer)
     # Save render in tensorboard folder
     # folder_to_save = writer.log_dir
 
