@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.render.geometry import Geometry, Shape
-from predator_prey.scenario.base_scenario import BaseScenario
+from predator_prey.scenario.base_scenario import BaseScenario, WorldType
 from predator_prey.utils import torus_distance, torus_offset
 
 
@@ -17,15 +17,24 @@ class IFoodChainAgent:
     color: tuple[int, int, int]
     speed: float
     size: int
+    targets: list[EntityType] = field(default_factory=list)
 
 
 SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
+    EntityType("target"): IFoodChainAgent(
+        type=EntityType("target"),
+        preys=[],
+        predators=[EntityType("low_agent")],
+        color=(0, 0, 0),
+        speed=0,
+        size=5,
+    ),
     EntityType("low_agent"): IFoodChainAgent(
         type=EntityType("low_agent"),
-        preys=[EntityType("high_agent"), EntityType("mid_agent")],
-        predators=[],
+        preys=[EntityType("target")],
+        predators=[EntityType("high_agent"), EntityType("mid_agent")],
         color=(0, 0, 255),
-        speed=2,
+        speed=10,
         size=20,
     ),
     EntityType("mid_agent"): IFoodChainAgent(
@@ -33,27 +42,41 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("low_agent")],
         predators=[EntityType("high_agent"), EntityType("super_agent")],
         color=(0, 255, 0),
-        speed=1,
-        size=12,
+        speed=6,
+        size=12
     ),
     EntityType("high_agent"): IFoodChainAgent(
         type=EntityType("high_agent"),
         preys=[EntityType("low_agent"), EntityType("mid_agent")],
         predators=[],
         color=(255, 0, 0),
-        speed=0.5,
-        size=10,
+        speed=1,
+        size=10
     ),
     EntityType("super_agent"): IFoodChainAgent(
         type=EntityType("super_agent"),
         preys=[EntityType("mid_agent")],
         predators=[],
         color=(255, 255, 0),
-        speed=1,
-        size=15,
-    ),
+        speed=2,
+        size=15
+    )
 }
 
+SIMPLE_LANDMARKS = [
+    Entity(
+        'target_1',
+        EntityType('target'),
+        x=300, y=200,
+        geometry=Geometry(Shape.CIRCLE, color=(255, 255, 0), x=0, y=0, radius=5),
+    ),
+    Entity(
+        'target_2',
+        EntityType('target'),
+        x=200, y=200,
+        geometry=Geometry(Shape.CIRCLE, color=(255, 255, 0), x=0, y=0, radius=5),
+    )
+]
 
 class FoodChainScenario(BaseScenario):
 
@@ -73,6 +96,7 @@ class FoodChainScenario(BaseScenario):
         self.damping = 0.95
 
         self.n_agents = sum(self.agents_per_type.values())
+        self.n_landmarks = len(self.landmarks)
 
         self.observation_space_by_type = self._create_observation_space()
         self.action_space_by_type = self._create_action_space()
@@ -80,20 +104,15 @@ class FoodChainScenario(BaseScenario):
         self.action_space = []
         self.agents = self._create_agents()
 
+        self.mode = WorldType.TORUS
+
     def _create_observation_space(self) -> spaces:
-        low = np.array([-np.inf, -np.inf])
-        high = np.array([np.inf, np.inf])
-        space = spaces.Box(low=low, high=high, shape=(2,), dtype=np.float32)
+        space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
         return {agent_type: space for agent_type in self.food_chain.keys()}
 
     def _create_action_space(self) -> spaces:
         return {
-            agent_type: spaces.Box(
-                low=-agent.speed,
-                high=+agent.speed,
-                shape=(2 * (self.n_agents - 1) + 2,),
-                dtype=np.float32,
-            )
+            agent_type: spaces.Box(low=-1, high=+1, shape=(2, ), dtype=np.float32)
             for agent_type, agent in self.food_chain.items()
         }
 
@@ -124,22 +143,20 @@ class FoodChainScenario(BaseScenario):
 
     def reset(self) -> tuple[np.ndarray, dict]:
         for agent in self.agents:
-            agent.set_position(
-                np.random.uniform(0, self.width), np.random.uniform(0, self.height)
-            )
+            agent.set_position(np.random.uniform(0, self.width), np.random.uniform(0, self.height))
+        # for landmark in self.landmarks:
+        #     landmark.set_position(landmark.x, landmark.y)
+        #     landmark.geometry.set_position(landmark.x, landmark.y)
 
     def observe(self, agent: BaseAgent) -> np.ndarray:
         relative_positions = []
         for other in self.agents:
             if other != agent:
-                relative_positions.extend(
-                    torus_offset(agent, other, self.width, self.height)
-                )
+                # print(f"Agent: {agent.type}, Other: {other.type}, Offset: {self._offset(agent, other, norm=True)}")
+                relative_positions.extend(self._offset(agent, other, scaled=True))
 
         for landmark in self.landmarks:
-            relative_positions.extend(
-                torus_offset(agent, landmark, self.width, self.height)
-            )
+            relative_positions.extend(self._offset(agent, landmark, scaled=True))
 
         relative_positions.extend([agent.vx, agent.vy])
         return np.array(relative_positions)
@@ -150,17 +167,57 @@ class FoodChainScenario(BaseScenario):
         # Alpha and beta are hyperparameters that control the influence of hunting vs staying away
         alpha = 0.1
         beta = 0.1
+
+        prey_distances = []
         for other in self.agents:
             if other != agent:
-                distance = torus_distance(
-                    agent.x, agent.y, other.x, other.y, self.width, self.height
-                )
-                if other.type in agent.preys:
-                    reward -= alpha * distance
-                elif other.type in agent.predators:
+                distance = self._distance(agent, other, scaled=True)
+                # Need to compute the distance between all agents by type and relation as well as caught for each step
+                # To simplify the reward function per agent
+                if other.type in self.food_chain[agent.type].preys:
+                    agent_species = [a for a in self.agents if a.type == agent.type]
+                    prey_species = [a for a in self.agents if a.type == other.type]
+
+                    for pred in agent_species:
+                        reward -= alpha * min([self._distance(pred, prey, scaled=True) for prey in prey_species])
+                    for prey in prey_species:
+                        for pred in agent_species:
+                            if self.is_caught(pred, prey):
+                                # print(f"{pred.type} caught {prey.type}")
+                                reward += 10
+                elif other.type in self.food_chain[agent.type].predators:
                     reward += beta * distance
+                    if self.is_caught(agent, other):
+                        reward -= 10
+        # if len(prey_distances) > 0:
+        #     reward -= alpha * min(prey_distances)
+
         return reward
 
     def done(self, agent: BaseAgent) -> bool:
         # For now, we just terminate the episode withouth any condition
         return False
+
+    def step(self):
+        # Simply update the position of the agents based without any physics
+        for agent in self.agents:
+            agent.x += agent.vx * self.food_chain[agent.type].speed * 5
+            agent.y += agent.vy * self.food_chain[agent.type].speed * 5
+
+            # Torus world
+            if self.mode == WorldType.TORUS:
+                agent.x %= self.width
+                agent.y %= self.height
+            else:
+                # Avoid agents to go outside the world
+                agent.x = max(0, min(agent.x, self.width))
+                agent.y = max(0, min(agent.y, self.height))
+
+            for landmark in self.landmarks:
+                if agent != landmark and landmark.can_collide:
+                    if check_collision(agent, landmark, 0, 0, offset=2): # Change if torus
+                        agent.x -= agent.vx
+                        agent.y -= agent.vy
+
+            agent.vx *= self.damping
+            agent.vy *= self.damping

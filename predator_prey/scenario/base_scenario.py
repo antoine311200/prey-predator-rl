@@ -6,6 +6,12 @@ from gymnasium import spaces
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.utils import torus_distance, torus_offset
 
+# Create enum
+from enum import Enum
+
+class WorldType(Enum):
+    TORUS = "torus"
+    RECTANGLE = "rectangle"
 
 @dataclass
 class ScenarioConfiguration:
@@ -69,23 +75,53 @@ class BaseScenario:
         self.observation_space = observation_space
         self.action_space = action_space
 
+        self.mode = WorldType.TORUS
+
     @property
     def entities(self):
-        return self.agents + self.landmarks
+        return self.agents# + self.landmarks
+
+    def _distance(self, agent1: BaseAgent, agent2: BaseAgent, scaled=False) -> float:
+        if self.mode == WorldType.RECTANGLE:
+            offset = self._offset(agent1, agent2, scaled=scaled)
+            return np.sqrt(offset[0] ** 2 + offset[1] ** 2)
+        elif self.mode == WorldType.TORUS:
+            return torus_distance(agent1, agent2, self.width, self.height, normalized=scaled)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+    def _offset(self, agent1: BaseAgent, agent2: BaseAgent, scaled=False) -> np.ndarray:
+        if self.mode == WorldType.RECTANGLE:
+            offset = np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+        elif self.mode == WorldType.TORUS:
+            offset = list(torus_offset(agent1, agent2, self.width, self.height))
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+        if scaled:
+            offset[0] /= (self.width / 2)
+            offset[1] /= (self.height / 2)
+
+        return offset
 
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
             agent.x += (
-                agent.vx * (1 if agent.type == EntityType("predator") else 1.5) * 10
+                agent.vx * (1 if agent.type == EntityType("predator") else 1.5) * 30
             )
             agent.y += (
-                agent.vy * (1 if agent.type == EntityType("predator") else 1.5) * 10
+                agent.vy * (1 if agent.type == EntityType("predator") else 1.5) * 30
             )
 
             # Torus world
-            agent.x %= self.width
-            agent.y %= self.height
+            if self.mode == WorldType.TORUS:
+                agent.x %= self.width
+                agent.y %= self.height
+            else:
+                # Avoid agents to go outside the world
+                agent.x = max(0, min(agent.x, self.width))
+                agent.y = max(0, min(agent.y, self.height))
 
             for landmark in self.landmarks:
                 if agent != landmark and landmark.can_collide:
@@ -115,6 +151,11 @@ class BaseScenario:
 
     def info(self, agent: BaseAgent):
         return {}
+
+    def is_caught(self, agent, predator):
+        radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
+        return self._distance(agent, predator) < radius
+
 
 
 from predator_prey.render.geometry import Geometry, Shape
@@ -148,7 +189,6 @@ class SimplePreyPredatorScenario(BaseScenario):
             BaseAgent(
                 f"prey_{i}",
                 EntityType("prey"),
-                communicate=False,
                 geometry=prey_geometry,
                 observation_space=prey_observation_space,
                 action_space=prey_action_space,
@@ -166,7 +206,6 @@ class SimplePreyPredatorScenario(BaseScenario):
             BaseAgent(
                 f"predator_{i}",
                 EntityType("predator"),
-                communicate=True,
                 geometry=predator_geometry,
                 observation_space=predator_observation_space,
                 action_space=predator_action_space,
@@ -219,14 +258,12 @@ class SimplePreyPredatorScenario(BaseScenario):
         for agent_entity in self.agents:
             if agent_entity != agent:
                 rel_entity_positions.extend(
-                    torus_offset(
-                        agent, agent_entity, self.width, self.height, normalized=True
-                    )
+                    self._offset(agent, agent_entity, scaled=True)
                 )
 
         for landmark in self.landmarks:
             rel_entity_positions.extend(
-                torus_offset(agent, landmark, self.width, self.height, normalized=True)
+                self._offset(agent, landmark, scaled=True)
             )
 
         # Add agent velocity
@@ -247,9 +284,10 @@ class SimplePreyPredatorScenario(BaseScenario):
         if is_prey:
             reward = 0
             for predator in self.predators:
-                distance = torus_distance(
-                    agent, predator, self.width, self.height, normalized=True
-                )
+                # distance = torus_distance(
+                #     agent, predator, self.width, self.height, normalized=True
+                # )
+                distance = self._distance(agent, predator, scaled=True)
                 reward += 0.1 * distance
                 if self.is_caught(agent, predator):
                     reward -= 10
@@ -259,9 +297,10 @@ class SimplePreyPredatorScenario(BaseScenario):
                 alpha = 0.1
                 reward -= alpha * min(
                     [
-                        torus_distance(
-                            prey, pred, self.width, self.height, normalized=True
-                        )
+                        # torus_distance(
+                        #     prey, pred, self.width, self.height, normalized=True
+                        # )
+                        self._distance(prey, pred, scaled=True)
                         for prey in self.preys
                     ]
                 )
@@ -283,4 +322,5 @@ class SimplePreyPredatorScenario(BaseScenario):
 
     def is_caught(self, agent, predator):
         radius = (agent.geometry.width / 2 + predator.geometry.width / 2) * 1.5
-        return torus_distance(agent, predator, self.width, self.height) < radius
+        # return torus_distance(agent, predator, self.width, self.height) < radius
+        return self._distance(agent, predator) < radius
