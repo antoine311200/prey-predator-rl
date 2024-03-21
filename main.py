@@ -13,7 +13,7 @@ from predator_prey.scenario.scenarios import get_scenarios
 if __name__ == "__main__":
     # scenario, instance = get_scenarios("food_chain")
     writer = SummaryWriter()
-    scenario, instance = get_scenarios("prey_predators", width=400, height=400)
+    scenario, instance = get_scenarios("prey_predators", width=500, height=500)
     env = MultiAgentEnvionment(scenario, n_steps=30)
 
     maddpg = MADDPG(
