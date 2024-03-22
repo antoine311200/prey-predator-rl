@@ -32,7 +32,7 @@ if __name__ == "__main__":
         writer = None
     # scenario, instance = get_scenarios("food_chain")
     # scenario, instance = get_scenarios("food_chain", width=400, height=400)
-    scenario, instance = get_scenarios("very_big_prey_predators")
+    scenario, instance = get_scenarios("big_prey_predators")
     env = MultiAgentEnvionment(scenario, n_steps=100)
 
     maddpg = MADDPG(
@@ -46,10 +46,11 @@ if __name__ == "__main__":
 
     obs, info = env.reset()
 
-    step = 0
-    max_steps = 2_000
+    max_steps = 400_000
     eval_every_n_episodes = 10
+
     n_episodes = 0
+    step = 0
 
     cumul_train_reward = 0
     do_one_eval = False
@@ -58,7 +59,7 @@ if __name__ == "__main__":
         # Take action and update environment
         actions = maddpg.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        cumul_train_reward += rewards[1]
+        cumul_train_reward += rewards[0]
         # Convert to numpy arrays for easier handling
         actions = np.array(actions)
         maddpg.remember(obs, actions, rewards, dones, next_obs)
@@ -90,7 +91,7 @@ if __name__ == "__main__":
                 actions = maddpg.act(obs, explore=False)
                 next_obs, rewards, dones, truncated, infos = env.step(actions)
                 obs = next_obs
-                cumul_eval_reward += rewards[1]
+                cumul_eval_reward += rewards[0]
                 episode_len += 1
                 if np.any(dones) or truncated:
                     do_one_eval = False
@@ -118,17 +119,17 @@ if __name__ == "__main__":
     # Save render in tensorboard folder
     # folder_to_save = writer.log_dir
 
-    n_episode_render = 3
+    n_episode_render = 0
     incr_episode_render = 0
     incr_render = 0
     obs, info = env.reset()
     while True:
         # Render
         instance.render(scenario.entities, scenario.landmarks)
-        # if incr_episode_render < n_episode_render:
-        #     instance.save_render(
-        #         folder_to_save + f"/render_{incr_episode_render}_{incr_render}.png"
-        #     )
+        if incr_episode_render < n_episode_render:
+            instance.save_render(
+                folder_to_save + f"/render_{incr_episode_render}_{incr_render}.png"
+            )
         incr_render += 1
         pyglet.clock.tick()
         if instance.window.has_exit:
@@ -136,7 +137,7 @@ if __name__ == "__main__":
         time.sleep(0.07)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        print("obs: ", obs[1][:2], "actions: ", actions[1], "rewards: ", rewards[1])
+        print("obs: ", obs[0][:2], "actions: ", actions[0], "rewards: ", rewards[0])
         obs = next_obs
         if np.any(dones) or truncated:
             maddpg.reset()

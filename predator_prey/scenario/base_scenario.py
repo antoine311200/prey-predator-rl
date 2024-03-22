@@ -25,6 +25,7 @@ class ScenarioConfiguration:
     action_space: spaces.Tuple
 
     damping: float = 0.9
+    mode: WorldType = WorldType.TORUS
 
 
 def check_collision(
@@ -64,6 +65,7 @@ class BaseScenario:
         observation_space: spaces.Tuple,
         action_space: spaces.Tuple,
         damping: float = 0.9,
+        mode: WorldType = WorldType.TORUS,
     ):
         self.agents = agents
         self.landmarks = landmarks
@@ -77,7 +79,7 @@ class BaseScenario:
         self.observation_space = observation_space
         self.action_space = action_space
 
-        self.mode = WorldType.TORUS
+        self.mode = mode
 
     @property
     def entities(self):
@@ -97,15 +99,16 @@ class BaseScenario:
     def _offset(self, agent1: BaseAgent, agent2: BaseAgent, scaled=False) -> np.ndarray:
         if self.mode == WorldType.RECTANGLE:
             offset = np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+            if scaled:
+                offset[0] /= self.width
+                offset[1] /= self.height
         elif self.mode == WorldType.TORUS:
             offset = list(torus_offset(agent1, agent2, self.width, self.height))
+            if scaled:
+                offset[0] /= self.width / 2
+                offset[1] /= self.height / 2
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
-
-        if scaled:
-            offset[0] /= self.width / 2
-            offset[1] /= self.height / 2
-
         return offset
 
     def step(self):
@@ -170,21 +173,23 @@ class SimplePreyPredatorScenario(BaseScenario):
         width: int,
         height: int,
         landmarks: list[Entity] = None,
-        radius: int = 10,
+        radius_prey: int = 10,
+        radius_predator: int = 10,
+        mode: WorldType = WorldType.RECTANGLE,
     ):
 
         prey_geometry = Geometry(
-            Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=radius
+            Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=radius_prey
         )
         predator_geometry = Geometry(
-            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=radius
+            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=radius_predator
         )
 
         # Create a list of agent preys and predators
         prey_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators + len(landmarks) - 1) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
             dtype=np.float32,
         )
         prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -201,7 +206,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         predator_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators + len(landmarks) - 1) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
             dtype=np.float32,
         )
         predator_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -230,6 +235,7 @@ class SimplePreyPredatorScenario(BaseScenario):
             height=height,
             observation_space=observation_space,
             action_space=action_space,
+            mode=mode,
         )
         # Dataclass to mapping
         config = config.__dict__
@@ -267,6 +273,8 @@ class SimplePreyPredatorScenario(BaseScenario):
         for landmark in self.landmarks:
             rel_entity_positions.extend(self._offset(agent, landmark, scaled=True))
 
+        # Add agent position
+        rel_entity_positions.extend([agent.x / self.width, agent.y / self.height])
         # Add agent velocity
         rel_entity_positions.extend([agent.vx, agent.vy])
 

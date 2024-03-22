@@ -29,38 +29,12 @@ def prey_predators(width: int, height: int) -> BaseScenario:
 def big_prey_predators(width: int, height: int) -> BaseScenario:
 
     return SimplePreyPredatorScenario(
-        n_predators=3, n_preys=1, landmarks=[], width=width, height=height, radius=20
-    )
-
-
-def very_big_prey_predators(width: int, height: int) -> BaseScenario:
-    landmark = Entity(
-        "landmark",
-        EntityType("landmark"),
-        x=width / 2,
-        y=height / 2,
-        geometry=Geometry(
-            Shape.CIRCLE, x=width / 4, y=height / 4, radius=50, color=(0, 0, 0)
-        ),
-        can_move=False,
-    )
-    landmark2 = Entity(
-        "landmark",
-        EntityType("landmark"),
-        x=3 * width / 2,
-        y=3 * height / 2,
-        geometry=Geometry(
-            Shape.CIRCLE, x=3 * width / 4, y=3 * height / 4, radius=50, color=(0, 0, 0)
-        ),
-        can_move=False,
-    )
-    return SimplePreyPredatorScenario(
         n_predators=3,
         n_preys=1,
-        landmarks=[landmark, landmark2],
+        landmarks=[],
         width=width,
         height=height,
-        radius=30,
+        radius_predator=20,
     )
 
 
