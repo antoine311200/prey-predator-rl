@@ -25,15 +25,19 @@ def close_writer(writer):
 
 
 if __name__ == "__main__":
-    use_writer = True
+    use_writer = False
     if use_writer:
         writer = SummaryWriter()
     else:
         writer = None
+
+    max_steps = 100_000
+    eval_every_n_episodes = 250
+
     # scenario, instance = get_scenarios("food_chain")
-    # scenario, instance = get_scenarios("food_chain", width=400, height=400)
-    scenario, instance = get_scenarios("big_prey_predators")
-    env = MultiAgentEnvionment(scenario, n_steps=70)
+    scenario, instance = get_scenarios("food_chain", width=400, height=400)
+    # scenario, instance = get_scenarios("big_prey_predators")
+    env = MultiAgentEnvionment(scenario, n_steps=100)
 
     maddpg = MADDPG(
         env.state_size,
@@ -42,14 +46,12 @@ if __name__ == "__main__":
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
-        warmup_steps=10000,
+        warmup_steps=int(0.1*max_steps),
         train_every_n_steps=5,
     )
 
     obs, info = env.reset()
 
-    max_steps = 100_000
-    eval_every_n_episodes = 30
 
     n_episodes = 0
     step = 0
@@ -145,7 +147,8 @@ if __name__ == "__main__":
         time.sleep(0.07)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        print("obs: ", obs[0][:2], "actions: ", actions[0], "rewards: ", rewards[0])
+        # print("obs: ", obs[0][:2], "actions: ", actions[0], "rewards: ", rewards[0])
+        print(" | ".join(f"{agent.type}: {reward:.3f}" for agent, reward in zip(env.agents, rewards)))
         obs = next_obs
         if np.any(dones) or truncated:
             maddpg.reset()
