@@ -35,7 +35,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("target")],
         predators=[EntityType("high_agent"), EntityType("mid_agent")],
         color=(0, 0, 255),
-        speed=10,
+        speed=15,
         size=20,
     ),
     EntityType("mid_agent"): IFoodChainAgent(
@@ -51,7 +51,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("low_agent"), EntityType("mid_agent")],
         predators=[],
         color=(255, 0, 0),
-        speed=1,
+        speed=12,
         size=10
     ),
     EntityType("super_agent"): IFoodChainAgent(
@@ -59,7 +59,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("mid_agent")],
         predators=[],
         color=(255, 255, 0),
-        speed=2,
+        speed=20,
         size=15
     )
 }
@@ -113,7 +113,7 @@ class FoodChainScenario(BaseScenario):
         self.mode = WorldType.RECTANGLE
 
     def _create_observation_space(self) -> spaces:
-        space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
+        space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks) + 2,), dtype=np.float32)
         return {agent_type: space for agent_type in self.food_chain.keys()}
 
     def _create_action_space(self) -> spaces:
@@ -164,6 +164,7 @@ class FoodChainScenario(BaseScenario):
         for landmark in self.landmarks:
             relative_positions.extend(self._offset(agent, landmark, scaled=True))
 
+        relative_positions.extend([agent.x / self.width, agent.y / self.height])
         relative_positions.extend([agent.vx, agent.vy])
         return np.array(relative_positions)
 
@@ -171,8 +172,8 @@ class FoodChainScenario(BaseScenario):
         # Reward base on maximizing the distance to predators and minimizing the distance to preys
         reward = 0
         # Alpha and beta are hyperparameters that control the influence of hunting vs staying away
-        alpha = 0.1
-        beta = 0.1
+        alpha = 0.05
+        beta = 0.05
 
         pred_types = self.food_chain[agent.type].predators
         prey_types = self.food_chain[agent.type].preys
@@ -205,7 +206,7 @@ class FoodChainScenario(BaseScenario):
         # import time
 
         # start = time.time()
-        speed_factor = 10
+        speed_factor = 1
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
             agent.x += agent.vx * self.food_chain[agent.type].speed * speed_factor

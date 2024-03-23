@@ -31,11 +31,12 @@ if __name__ == "__main__":
     else:
         writer = None
 
-    max_steps = 100_000
-    eval_every_n_episodes = 250
+    max_steps = 50_000
+    warmup_steps = 1000
+    eval_every_n_episodes = 150
 
     # scenario, instance = get_scenarios("food_chain")
-    scenario, instance = get_scenarios("food_chain", width=400, height=400)
+    scenario, instance = get_scenarios("food_chain", width=700, height=700)
     # scenario, instance = get_scenarios("big_prey_predators")
     env = MultiAgentEnvionment(scenario, n_steps=100)
 
@@ -46,7 +47,7 @@ if __name__ == "__main__":
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
-        warmup_steps=int(0.1*max_steps),
+        warmup_steps=warmup_steps,
         train_every_n_steps=5,
     )
 
@@ -59,7 +60,8 @@ if __name__ == "__main__":
     cumul_train_reward = 0
     do_one_eval = False
     start = time.time()
-    while step < max_steps:
+    start_episode_time = time.time()
+    while step < max_steps+1:
         # Take action and update environment
         actions = maddpg.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
@@ -86,6 +88,9 @@ if __name__ == "__main__":
             if n_episodes % eval_every_n_episodes == 0:
                 do_one_eval = True
 
+            print(f"Episode {n_episodes} > {time.time() - start_episode_time:.2f}s")
+            start_episode_time = time.time()
+
         if do_one_eval:
             obs, info = env.reset()
             # Init counters
@@ -96,7 +101,7 @@ if __name__ == "__main__":
                 pyglet.clock.tick()
                 if instance.window.has_exit:
                     break
-                time.sleep(0.05)
+                # time.sleep(0.05)
                 actions = maddpg.act(obs, explore=False)
                 next_obs, rewards, dones, truncated, infos = env.step(actions)
                 obs = next_obs
@@ -144,7 +149,7 @@ if __name__ == "__main__":
         pyglet.clock.tick()
         if instance.window.has_exit:
             break
-        time.sleep(0.07)
+        # time.sleep(0.07)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
         # print("obs: ", obs[0][:2], "actions: ", actions[0], "rewards: ", rewards[0])

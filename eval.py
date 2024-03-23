@@ -10,7 +10,7 @@ from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
-    scenario, instance = get_scenarios("big_prey_predators")
+    scenario, instance = get_scenarios("food_chain", width=1200, height=700)#get_scenarios("big_prey_predators")
     env = MultiAgentEnvionment(scenario, n_steps=100)
 
     maddpg = MADDPG(
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         instance.render(scenario.entities, scenario.landmarks)
         if instance.window.has_exit:
             break
-        time.sleep(0.3)
+        # time.sleep(0.3)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
         print("obs: ", obs[0], "actions: ", actions[0], "rewards: ", rewards[0])

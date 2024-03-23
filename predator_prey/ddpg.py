@@ -121,7 +121,7 @@ class DDPG:
         self.ou = OrnsteinUhlenbeckActionNoise(mu=np.zeros((action_size,)))
         self.actor = actor_class(state_size, hidden_size, action_size).to(device)
         self.critic = critic_class(
-            state_size * n_agents, hidden_size * n_agents, action_size * n_agents
+            state_size * n_agents, 4 * hidden_size, action_size * n_agents
         ).to(device)
 
         self.target_actor = deepcopy(self.actor).to(device)
@@ -174,7 +174,7 @@ class DDPG:
         critic_loss = torch.nn.functional.mse_loss(predicted_q, y)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm(self.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.critic_optimizer.step()
 
         # Update actor
@@ -182,7 +182,7 @@ class DDPG:
         actor_loss += entropy.mean() * 1e-3
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        torch.nn.utils.clip_grad_norm(self.actor.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         self.actor_optimizer.step()
 
         return {"actor_loss": actor_loss.item(), "critic_loss": critic_loss.item()}
