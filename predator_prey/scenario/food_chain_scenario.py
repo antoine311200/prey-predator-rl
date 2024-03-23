@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
+from collections import defaultdict
 
 import numpy as np
 from gymnasium import spaces
 
 from predator_prey.agents import BaseAgent, Entity, EntityType
 from predator_prey.render.geometry import Geometry, Shape
-from predator_prey.scenario.base_scenario import BaseScenario, WorldType
+from predator_prey.scenario.base_scenario import BaseScenario, WorldType, check_collision
 from predator_prey.utils import torus_distance, torus_offset
 
 
@@ -95,6 +96,7 @@ class FoodChainScenario(BaseScenario):
         self.landmarks = landmarks if landmarks is not None else []
         self.damping = 0.95
 
+        self.n_species = len(self.food_chain)
         self.n_agents = sum(self.agents_per_type.values())
         self.n_landmarks = len(self.landmarks)
 
@@ -104,7 +106,11 @@ class FoodChainScenario(BaseScenario):
         self.action_space = []
         self.agents = self._create_agents()
 
-        self.mode = WorldType.TORUS
+        self.species_distances = {}
+        self.distances = {}
+        self.caught = defaultdict(int)
+
+        self.mode = WorldType.RECTANGLE
 
     def _create_observation_space(self) -> spaces:
         space = spaces.Box(low=-1, high=1, shape=(2 * (self.n_agents + self.n_landmarks - 1) + 2,), dtype=np.float32)
@@ -168,29 +174,26 @@ class FoodChainScenario(BaseScenario):
         alpha = 0.1
         beta = 0.1
 
-        prey_distances = []
-        for other in self.agents:
-            if other != agent:
-                distance = self._distance(agent, other, scaled=True)
-                # Need to compute the distance between all agents by type and relation as well as caught for each step
-                # To simplify the reward function per agent
-                if other.type in self.food_chain[agent.type].preys:
-                    agent_species = [a for a in self.agents if a.type == agent.type]
-                    prey_species = [a for a in self.agents if a.type == other.type]
+        pred_types = self.food_chain[agent.type].predators
+        prey_types = self.food_chain[agent.type].preys
 
-                    for pred in agent_species:
-                        reward -= alpha * min([self._distance(pred, prey, scaled=True) for prey in prey_species])
-                    for prey in prey_species:
-                        for pred in agent_species:
-                            if self.is_caught(pred, prey):
-                                # print(f"{pred.type} caught {prey.type}")
-                                reward += 10
-                elif other.type in self.food_chain[agent.type].predators:
-                    reward += beta * distance
-                    if self.is_caught(agent, other):
-                        reward -= 10
-        # if len(prey_distances) > 0:
-        #     reward -= alpha * min(prey_distances)
+        coop_distance = [dist[prey] for dist in self.species_distances[agent.type] for prey in prey_types]
+        reward -= alpha * sum(coop_distance)
+
+        # Reward for catching preys
+        reward += 10 * self.caught[agent.type]
+
+        # Maximize the distance to predators
+        distances = self.distances[agent]
+        for pred, distance in distances.items():
+            if pred.type in pred_types:
+                reward += beta * distance
+                # If the predator is too close, penalize the agent
+                radius = (agent.geometry.width / 2 + pred.geometry.width / 2) / self.width
+                if distance < radius:
+                    reward -= 10
+
+        # print(f"Agent: {agent.type}, Reward: {reward}")
 
         return reward
 
@@ -199,10 +202,14 @@ class FoodChainScenario(BaseScenario):
         return False
 
     def step(self):
+        # import time
+
+        # start = time.time()
+        speed_factor = 10
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            agent.x += agent.vx * self.food_chain[agent.type].speed * 5
-            agent.y += agent.vy * self.food_chain[agent.type].speed * 5
+            agent.x += agent.vx * self.food_chain[agent.type].speed * speed_factor
+            agent.y += agent.vy * self.food_chain[agent.type].speed * speed_factor
 
             # Torus world
             if self.mode == WorldType.TORUS:
@@ -215,9 +222,44 @@ class FoodChainScenario(BaseScenario):
 
             for landmark in self.landmarks:
                 if agent != landmark and landmark.can_collide:
-                    if check_collision(agent, landmark, 0, 0, offset=2): # Change if torus
-                        agent.x -= agent.vx
-                        agent.y -= agent.vy
+                    if check_collision(agent, landmark, self.width, self.height, offset=0): # Change if torus
+                        agent.x -= agent.vx * self.food_chain[agent.type].speed
+                        agent.y -= agent.vy * self.food_chain[agent.type].speed
 
             agent.vx *= self.damping
             agent.vy *= self.damping
+
+        # Fill the species_distances dict
+        self.species_distances = {}
+        for type in self.food_chain.keys():
+            self.species_distances[type] = []
+            # For each agent of this type, get the minimum distance to their preys for each prey type
+            for agent in self.agents:
+                if agent.type == type:
+                    distances = {}
+                    for prey_type in self.food_chain[type].preys:
+                        prey_distances = []
+                        for prey in self.agents:
+                            if prey.type == prey_type:
+                                prey_distances.append(self._distance(agent, prey, scaled=True))
+                        distances[prey_type] = min(prey_distances)
+                    self.species_distances[type].append(distances)
+
+        # Fill the distances dict
+        self.distances = {}
+        self.caught = defaultdict(int)
+        for agent in self.agents:
+            self.distances[agent] = {}
+            for other in self.agents:
+                if agent != other:
+                    self.distances[agent][other] = self._distance(agent, other, scaled=True)
+                    radius = (agent.geometry.width / 2 + other.geometry.width / 2) / self.width
+                    # if other.type in self.food_chain[agent.type].preys:
+                    if self.distances[agent][other] < radius and other.type in self.food_chain[agent.type].preys:
+                        # print(f"{agent.type} caught {other.type} with distance {self.distances[agent][other]} radius {radius}")
+                        self.caught[agent.type] += 1
+
+        # print(f"Step time: {time.time() - start}")
+        # print(self.caught)
+        # print(self.distances)
+        # print(self.species_distances)
