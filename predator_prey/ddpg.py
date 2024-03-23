@@ -315,3 +315,8 @@ class MADDPG:
         for incr, agent in enumerate(self.agents):
             torch.save(agent.actor.state_dict(), f"{path}_actor_{incr}.pth")
             torch.save(agent.critic.state_dict(), f"{path}_critic_{incr}.pth")
+
+    def load(self, path: str) -> None:
+        for incr, agent in enumerate(self.agents):
+            agent.actor.load_state_dict(torch.load(f"{path}_actor_{incr}.pth"))
+            agent.critic.load_state_dict(torch.load(f"{path}_critic_{incr}.pth"))
