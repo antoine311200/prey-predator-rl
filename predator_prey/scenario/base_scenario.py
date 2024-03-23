@@ -114,7 +114,7 @@ class BaseScenario:
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            speed_factor = (1 if agent.type == EntityType("predator") else 1.3) * 10
+            speed_factor = (1 if agent.type == EntityType("predator") else 1.5) * 10
             agent.x += agent.vx * speed_factor
             agent.y += agent.vy * speed_factor
 
@@ -289,7 +289,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         # The goal will simply be to be as far as possible from the predators for the preys
         # and as close as possible to the preys for the predators
         is_prey = agent.type == EntityType("prey")
-
+        alpha = 0.05
         if is_prey:
             reward = 0.0
             for predator in self.predators:
@@ -297,13 +297,12 @@ class SimplePreyPredatorScenario(BaseScenario):
                 #     agent, predator, self.width, self.height, normalized=True
                 # )
                 distance = self._distance(agent, predator, scaled=True)
-                reward += 0.1 * distance
+                reward += alpha * distance
                 if self.is_caught(agent, predator):
                     reward -= 10
         else:
             reward = 0
             for pred in self.predators:
-                alpha = 0.1
                 reward -= alpha * min(
                     [
                         # torus_distance(

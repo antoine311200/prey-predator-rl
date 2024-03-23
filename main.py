@@ -25,7 +25,7 @@ def close_writer(writer):
 
 
 if __name__ == "__main__":
-    use_writer = False
+    use_writer = True
     if use_writer:
         writer = SummaryWriter()
     else:
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # scenario, instance = get_scenarios("food_chain")
     # scenario, instance = get_scenarios("food_chain", width=400, height=400)
     scenario, instance = get_scenarios("big_prey_predators")
-    env = MultiAgentEnvionment(scenario, n_steps=100)
+    env = MultiAgentEnvionment(scenario, n_steps=70)
 
     maddpg = MADDPG(
         env.state_size,
@@ -42,12 +42,14 @@ if __name__ == "__main__":
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
+        warmup_steps=10000,
+        train_every_n_steps=5,
     )
 
     obs, info = env.reset()
 
-    max_steps = 400_000
-    eval_every_n_episodes = 10
+    max_steps = 100_000
+    eval_every_n_episodes = 30
 
     n_episodes = 0
     step = 0
@@ -88,6 +90,11 @@ if __name__ == "__main__":
             cumul_eval_reward = 0
             episode_len = 0
             while True:
+                instance.render(scenario.entities, scenario.landmarks)
+                pyglet.clock.tick()
+                if instance.window.has_exit:
+                    break
+                time.sleep(0.05)
                 actions = maddpg.act(obs, explore=False)
                 next_obs, rewards, dones, truncated, infos = env.step(actions)
                 obs = next_obs
@@ -117,7 +124,8 @@ if __name__ == "__main__":
 
     close_writer(writer)
     # Save render in tensorboard folder
-    # folder_to_save = writer.log_dir
+
+    folder_to_save = writer.log_dir if writer is not None else "renders/"
 
     n_episode_render = 0
     incr_episode_render = 0
