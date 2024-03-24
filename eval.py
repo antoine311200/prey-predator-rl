@@ -16,7 +16,7 @@ if __name__ == "__main__":
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=64,
+        hidden_size=512,
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
