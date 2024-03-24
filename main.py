@@ -2,6 +2,7 @@ import time
 
 import numpy as np
 import pyglet
+import tqdm
 from matplotlib import pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
@@ -17,6 +18,12 @@ def push_scalar(writer, key, value, step):
     writer.add_scalar(key, value, step)
 
 
+def push_histogram(writer, key, value, step):
+    if writer is None:
+        return
+    writer.add_histogram(key, value, step)
+
+
 def close_writer(writer):
     if writer is None:
         return
@@ -24,44 +31,43 @@ def close_writer(writer):
     writer.close()
 
 
+MAX_STEPS = 200_000
+N_STEPS = 100
+EVAL_EVERY_N_EPISODES = 10
+USE_WRITER = False
+
 if __name__ == "__main__":
-    use_writer = True
-    if use_writer:
+    if USE_WRITER:
         writer = SummaryWriter()
     else:
         writer = None
-    # scenario, instance = get_scenarios("food_chain")
-    # scenario, instance = get_scenarios("food_chain", width=400, height=400)
     scenario, instance = get_scenarios("big_prey_predators")
-    env = MultiAgentEnvionment(scenario, n_steps=70)
+    env = MultiAgentEnvionment(scenario, n_steps=N_STEPS)
 
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=64,
+        hidden_size=256,
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
-        warmup_steps=10000,
+        warmup_steps=10_000,
         train_every_n_steps=5,
     )
 
     obs, info = env.reset()
 
-    max_steps = 100_000
-    eval_every_n_episodes = 30
-
     n_episodes = 0
     step = 0
-
-    cumul_train_reward = 0
+    cumul_train_reward = np.zeros(len(env.agents))
     do_one_eval = False
     start = time.time()
-    while step < max_steps:
+    pbar = tqdm.tqdm(total=MAX_STEPS)
+    while pbar.n < MAX_STEPS:
         # Take action and update environment
         actions = maddpg.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
-        cumul_train_reward += rewards[0]
+        cumul_train_reward += rewards
         # Convert to numpy arrays for easier handling
         actions = np.array(actions)
         maddpg.remember(obs, actions, rewards, dones, next_obs)
@@ -69,54 +75,68 @@ if __name__ == "__main__":
         if losses is not None:
             for incr in range(len(env.agents)):
                 for key, value in losses[incr].items():
-                    push_scalar(writer, "losses/" + key, value, step)
+                    push_scalar(writer, f"agent{incr}/" + key, value, step)
         obs = next_obs
         if np.any(dones) or truncated:
             # Reset
             maddpg.reset()
             obs, info = env.reset()
             # Log
-            push_scalar(writer, "train_reward", cumul_train_reward, step)
+            for incr in range(len(env.agents)):
+                push_scalar(
+                    writer, f"agent{incr}/train_reward", cumul_train_reward[incr], step
+                )
             push_scalar(writer, "time", time.time() - start, step)
             # Reset counters
-            cumul_train_reward = 0
+            cumul_train_reward = np.zeros(len(env.agents))
             n_episodes += 1
-            if n_episodes % eval_every_n_episodes == 0:
+            if n_episodes % EVAL_EVERY_N_EPISODES == 0:
                 do_one_eval = True
 
         if do_one_eval:
             obs, info = env.reset()
             # Init counters
-            cumul_eval_reward = 0
+            cumul_eval_reward = np.zeros(len(env.agents))
+            all_actions = []
             episode_len = 0
             while True:
-                instance.render(scenario.entities, scenario.landmarks)
-                pyglet.clock.tick()
-                if instance.window.has_exit:
-                    break
-                time.sleep(0.05)
+                # instance.render(scenario.entities, scenario.landmarks)
+                # pyglet.clock.tick()
+                # if instance.window.has_exit:
+                #     break
                 actions = maddpg.act(obs, explore=False)
                 next_obs, rewards, dones, truncated, infos = env.step(actions)
                 obs = next_obs
-                cumul_eval_reward += rewards[0]
+                cumul_eval_reward += rewards
+                all_actions.append(actions)
                 episode_len += 1
                 if np.any(dones) or truncated:
                     do_one_eval = False
-                    print(
-                        "Evaluation, Reward:",
-                        cumul_eval_reward,
-                        "Episode length:",
-                        episode_len,
-                        "Step:",
-                        step,
+                    pbar.set_description(
+                        f"Evaluation, Reward prey: {cumul_eval_reward[0]}, Episode length: {episode_len}, Step: {step}"
                     )
                     # Log
-                    push_scalar(writer, "eval_reward", cumul_eval_reward, step)
+                    all_actions = np.array(all_actions[:episode_len])
+                    for incr in range(len(env.agents)):
+                        push_scalar(
+                            writer,
+                            f"agent{incr}/eval_reward",
+                            cumul_eval_reward[incr],
+                            step,
+                        )
+                        for incr_a in range(env.action_size):
+                            push_histogram(
+                                writer,
+                                f"agent{incr}/eval_action_{incr_a}",
+                                all_actions[:, incr, incr_a],
+                                step,
+                            )
                     push_scalar(writer, "eval_episode_length", episode_len, step)
                     maddpg.reset()
                     obs, info = env.reset()
                     break
 
+        pbar.update()
         step += 1
         if step % 25_000 == 0:
             print("Saving model")
