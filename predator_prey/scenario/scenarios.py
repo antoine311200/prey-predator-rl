@@ -29,14 +29,12 @@ def prey_predators(width: int, height: int) -> BaseScenario:
 def big_prey_predators(width: int, height: int) -> BaseScenario:
 
     return SimplePreyPredatorScenario(
-        n_predators=3, n_preys=1, landmarks=[], width=width, height=height, radius=20
-    )
-
-
-def very_big_prey_predators(width: int, height: int) -> BaseScenario:
-
-    return SimplePreyPredatorScenario(
-        n_predators=3, n_preys=1, landmarks=[], width=width, height=height, radius=30
+        n_predators=3,
+        n_preys=1,
+        landmarks=[],
+        width=width,
+        height=height,
+        radius_predator=20,
     )
 
 
@@ -44,12 +42,12 @@ def food_chain(width: int, height: int) -> BaseScenario:
     return FoodChainScenario(
         food_chain=SIMPLE_FOODCHAIN_RELATIONS,
         # landmarks=SIMPLE_LANDMARKS,
-        # n_agents={"low_agent": 10, "mid_agent": 5, "high_agent": 3, "super_agent": 1},
+        # n_agents={"target": 4, "low_agent": 10, "mid_agent": 5, "high_agent": 3, "super_agent": 1},
         # n_agents={"low_agent": 4, "mid_agent": 1, "high_agent": 2, "super_agent": 1},
         # n_agents={"target": 5, "low_agent": 1, "mid_agent": 0, "high_agent": 0, "super_agent": 0},
         # n_agents={"target": 5, "low_agent": 2, "mid_agent": 3, "high_agent": 0, "super_agent": 1},
         n_agents={
-            "target": 1,
+            "target": 2,
             "low_agent": 1,
             "mid_agent": 3,
             "high_agent": 0,

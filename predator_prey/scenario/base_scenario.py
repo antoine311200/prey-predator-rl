@@ -25,6 +25,7 @@ class ScenarioConfiguration:
     action_space: spaces.Tuple
 
     damping: float = 0.9
+    mode: WorldType = WorldType.TORUS
 
 
 def check_collision(
@@ -64,6 +65,7 @@ class BaseScenario:
         observation_space: spaces.Tuple,
         action_space: spaces.Tuple,
         damping: float = 0.9,
+        mode: WorldType = WorldType.TORUS,
     ):
         self.agents = agents
         self.landmarks = landmarks
@@ -77,7 +79,7 @@ class BaseScenario:
         self.observation_space = observation_space
         self.action_space = action_space
 
-        self.mode = WorldType.TORUS
+        self.mode = mode
 
     @property
     def entities(self):
@@ -97,26 +99,24 @@ class BaseScenario:
     def _offset(self, agent1: BaseAgent, agent2: BaseAgent, scaled=False) -> np.ndarray:
         if self.mode == WorldType.RECTANGLE:
             offset = np.array([agent1.x - agent2.x, agent1.y - agent2.y])
+            if scaled:
+                offset[0] /= self.width
+                offset[1] /= self.height
         elif self.mode == WorldType.TORUS:
             offset = list(torus_offset(agent1, agent2, self.width, self.height))
+            if scaled:
+                offset[0] /= self.width / 2
+                offset[1] /= self.height / 2
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
-
-        if scaled:
-            offset[0] /= self.width / 2
-            offset[1] /= self.height / 2
-
         return offset
 
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            agent.x += (
-                agent.vx * (1 if agent.type == EntityType("predator") else 1.5) * 30
-            )
-            agent.y += (
-                agent.vy * (1 if agent.type == EntityType("predator") else 1.5) * 30
-            )
+            speed_factor = (1 if agent.type == EntityType("predator") else 1.5) * 10
+            agent.x += agent.vx * speed_factor
+            agent.y += agent.vy * speed_factor
 
             # Torus world
             if self.mode == WorldType.TORUS:
@@ -130,10 +130,10 @@ class BaseScenario:
             for landmark in self.landmarks:
                 if agent != landmark and landmark.can_collide:
                     if check_collision(
-                        agent, landmark, self.width, self.height, offset=2
+                        agent, landmark, self.width, self.height, offset=0
                     ):
-                        agent.x -= agent.vx
-                        agent.y -= agent.vy
+                        agent.x -= agent.vx * speed_factor
+                        agent.y -= agent.vy * speed_factor
 
             agent.vx *= self.damping
             agent.vy *= self.damping
@@ -173,21 +173,23 @@ class SimplePreyPredatorScenario(BaseScenario):
         width: int,
         height: int,
         landmarks: list[Entity] = None,
-        radius: int = 10,
+        radius_prey: int = 10,
+        radius_predator: int = 10,
+        mode: WorldType = WorldType.RECTANGLE,
     ):
 
         prey_geometry = Geometry(
-            Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=radius
+            Shape.CIRCLE, color=(0, 0, 255), x=0, y=0, radius=radius_prey
         )
         predator_geometry = Geometry(
-            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=radius
+            Shape.CIRCLE, color=(255, 0, 0), x=0, y=0, radius=radius_predator
         )
 
         # Create a list of agent preys and predators
         prey_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators - 1) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
             dtype=np.float32,
         )
         prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -204,7 +206,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         predator_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators - 1) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
             dtype=np.float32,
         )
         predator_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -233,6 +235,7 @@ class SimplePreyPredatorScenario(BaseScenario):
             height=height,
             observation_space=observation_space,
             action_space=action_space,
+            mode=mode,
         )
         # Dataclass to mapping
         config = config.__dict__
@@ -270,6 +273,8 @@ class SimplePreyPredatorScenario(BaseScenario):
         for landmark in self.landmarks:
             rel_entity_positions.extend(self._offset(agent, landmark, scaled=True))
 
+        # Add agent position
+        rel_entity_positions.extend([agent.x / self.width, agent.y / self.height])
         # Add agent velocity
         rel_entity_positions.extend([agent.vx, agent.vy])
 
@@ -284,21 +289,20 @@ class SimplePreyPredatorScenario(BaseScenario):
         # The goal will simply be to be as far as possible from the predators for the preys
         # and as close as possible to the preys for the predators
         is_prey = agent.type == EntityType("prey")
-
+        alpha = 0.05
         if is_prey:
-            reward = 0
+            reward = 0.0
             for predator in self.predators:
                 # distance = torus_distance(
                 #     agent, predator, self.width, self.height, normalized=True
                 # )
                 distance = self._distance(agent, predator, scaled=True)
-                reward += 0.1 * distance
+                reward += alpha * distance
                 if self.is_caught(agent, predator):
                     reward -= 10
         else:
             reward = 0
             for pred in self.predators:
-                alpha = 0.1
                 reward -= alpha * min(
                     [
                         # torus_distance(
