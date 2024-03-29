@@ -166,3 +166,7 @@ cython_debug/
 *.pt
 *.pth
 runs/
+
+*.csv
+
+old_runs/

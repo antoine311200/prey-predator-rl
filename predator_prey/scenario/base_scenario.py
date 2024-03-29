@@ -114,7 +114,7 @@ class BaseScenario:
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            speed_factor = (1 if agent.type == EntityType("predator") else 1.5) * 10
+            speed_factor = (1 if agent.type == EntityType("predator") else 1.3) * 10
             agent.x += agent.vx * speed_factor
             agent.y += agent.vy * speed_factor
 
@@ -189,7 +189,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         prey_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks) + 1),),
             dtype=np.float32,
         )
         prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -206,7 +206,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         predator_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(2 * (n_preys + n_predators + len(landmarks)) + 2,),
+            shape=(2 * (n_preys + n_predators + len(landmarks) + 1),),
             dtype=np.float32,
         )
         predator_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -290,8 +290,8 @@ class SimplePreyPredatorScenario(BaseScenario):
         # and as close as possible to the preys for the predators
         is_prey = agent.type == EntityType("prey")
         alpha = 0.05
+        reward = 0.0
         if is_prey:
-            reward = 0.0
             for predator in self.predators:
                 # distance = torus_distance(
                 #     agent, predator, self.width, self.height, normalized=True
@@ -301,7 +301,6 @@ class SimplePreyPredatorScenario(BaseScenario):
                 if self.is_caught(agent, predator):
                     reward -= 10
         else:
-            reward = 0
             for pred in self.predators:
                 reward -= alpha * min(
                     [
@@ -317,6 +316,13 @@ class SimplePreyPredatorScenario(BaseScenario):
                         reward += 10
 
         # print(f"Reward for {agent.name}: {reward}")
+
+        # Add bounded reward:
+        for pos_coord in [agent.x / self.width, agent.y / self.width]:
+            # Resize to be between -1 and 1
+            pos_coord = 2 * pos_coord - 1
+            if abs(pos_coord) >= 0.9:
+                reward -= (abs(pos_coord) - 0.9) * 10
 
         return reward
 
