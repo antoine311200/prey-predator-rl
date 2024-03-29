@@ -16,7 +16,7 @@ if __name__ == "__main__":
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=512,
+        hidden_size=256,
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         instance.render(scenario.entities, scenario.landmarks)
         if instance.window.has_exit:
             break
-        time.sleep(0.3)
+        time.sleep(0.05)
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
         print("obs: ", obs[0], "actions: ", actions[0], "rewards: ", rewards[0])

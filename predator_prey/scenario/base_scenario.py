@@ -114,7 +114,7 @@ class BaseScenario:
     def step(self):
         # Simply update the position of the agents based without any physics
         for agent in self.agents:
-            speed_factor = (1 if agent.type == EntityType("predator") else 2) * 10
+            speed_factor = (1 if agent.type == EntityType("predator") else 1.3) * 10
             agent.x += agent.vx * speed_factor
             agent.y += agent.vy * speed_factor
 
@@ -189,7 +189,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         prey_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(4 * (n_preys + n_predators + len(landmarks)),),
+            shape=(2 * (n_preys + n_predators + len(landmarks) + 1),),
             dtype=np.float32,
         )
         prey_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -206,7 +206,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         predator_observation_space = spaces.Box(
             low=-1,
             high=1,
-            shape=(4 * (n_preys + n_predators + len(landmarks)),),
+            shape=(2 * (n_preys + n_predators + len(landmarks) + 1),),
             dtype=np.float32,
         )
         predator_action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
@@ -269,7 +269,6 @@ class SimplePreyPredatorScenario(BaseScenario):
                 rel_entity_positions.extend(
                     self._offset(agent, agent_entity, scaled=True)
                 )
-                rel_entity_positions.extend([agent_entity.vx, agent_entity.vy])
 
         for landmark in self.landmarks:
             rel_entity_positions.extend(self._offset(agent, landmark, scaled=True))
@@ -290,7 +289,7 @@ class SimplePreyPredatorScenario(BaseScenario):
         # The goal will simply be to be as far as possible from the predators for the preys
         # and as close as possible to the preys for the predators
         is_prey = agent.type == EntityType("prey")
-        alpha = 0.0
+        alpha = 0.05
         reward = 0.0
         if is_prey:
             for predator in self.predators:

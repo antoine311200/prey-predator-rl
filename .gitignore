@@ -168,3 +168,5 @@ cython_debug/
 runs/
 
 *.csv
+
+old_runs/

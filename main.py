@@ -31,10 +31,10 @@ def close_writer(writer):
     writer.close()
 
 
-MAX_STEPS = 200_000
+MAX_STEPS = 400_000
 N_STEPS = 100
 EVAL_EVERY_N_EPISODES = 10
-USE_WRITER = False
+USE_WRITER = True
 
 if __name__ == "__main__":
     if USE_WRITER:
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=256,
+        hidden_size=300,
         actor_class=Actor,
         critic_class=Critic,
         n_agents=len(env.agents),
@@ -87,6 +87,7 @@ if __name__ == "__main__":
                     writer, f"agent{incr}/train_reward", cumul_train_reward[incr], step
                 )
             push_scalar(writer, "time", time.time() - start, step)
+            push_scalar(writer, "is_caught", np.any(dones), step)
             # Reset counters
             cumul_train_reward = np.zeros(len(env.agents))
             n_episodes += 1
@@ -115,6 +116,7 @@ if __name__ == "__main__":
                     pbar.set_description(
                         f"Evaluation, Reward prey: {cumul_eval_reward[0]}, Episode length: {episode_len}, Step: {step}"
                     )
+                    push_scalar(writer, "is_caught_eval", np.any(dones), step)
                     # Log
                     all_actions = np.array(all_actions[:episode_len])
                     for incr in range(len(env.agents)):
