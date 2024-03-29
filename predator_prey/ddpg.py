@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 
 class ReplayBuffer:
@@ -107,7 +108,8 @@ class DDPG:
         tau: float,
         actor_class,
         critic_class,
-        device,
+        lr: float = 1e-3,
+        device="cpu",
     ) -> None:
         self.state_size = state_size
         self.action_size = action_size
@@ -121,15 +123,15 @@ class DDPG:
         self.ou = OrnsteinUhlenbeckActionNoise(mu=np.zeros((action_size,)))
         self.actor = actor_class(state_size, hidden_size, action_size).to(device)
         self.critic = critic_class(
-            state_size * n_agents, 4 * hidden_size, action_size * n_agents
+            state_size * n_agents, hidden_size, action_size * n_agents
         ).to(device)
 
         self.target_actor = deepcopy(self.actor).to(device)
         self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
     def act(self, state: np.ndarray, explore: bool = False) -> np.ndarray:
         with torch.no_grad():
@@ -174,18 +176,20 @@ class DDPG:
         critic_loss = torch.nn.functional.mse_loss(predicted_q, y)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.critic_optimizer.step()
 
         # Update actor
         actor_loss = -self.critic(states, current_actions).mean()
-        actor_loss += entropy.mean() * 1e-3
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         self.actor_optimizer.step()
 
-        return {"actor_loss": actor_loss.item(), "critic_loss": critic_loss.item()}
+        return {
+            "actor_loss": actor_loss.item(),
+            "critic_loss": critic_loss.item(),
+            "average_q": predicted_q.mean().item(),
+            "average_target_q": next_q.mean().item(),
+        }
 
     def update_target(self) -> None:
         for param, target_param in zip(
@@ -200,6 +204,25 @@ class DDPG:
             target_param.data.copy_(
                 self.tau * param.data + (1 - self.tau) * target_param.data
             )
+
+    def _weight_reset(self, m):
+        if isinstance(m, nn.Linear):
+            m.reset_parameters()
+
+    def reset_model(self) -> None:
+        print("Resetting model")
+        self.actor.apply(self._weight_reset)
+        self.critic.apply(self._weight_reset)
+
+        self.target_actor = deepcopy(self.actor).to(self.device)
+        self.target_critic = deepcopy(self.critic).to(self.device)
+
+        self.actor_optimizer = self.actor_optimizer.__class__(
+            self.actor.parameters(), **self.actor_optimizer.defaults
+        )
+        self.critic_optimizer = self.critic_optimizer.__class__(
+            self.critic.parameters(), **self.critic_optimizer.defaults
+        )
 
     def reset(self) -> None:
         self.ou.reset()
@@ -220,6 +243,7 @@ class MADDPG:
         batch_size: int = 256,
         warmup_steps: int = 1_000,
         train_every_n_steps: int = 10,
+        lr: float = 1e-3,
         mode="single"
     ) -> None:
         n_agents = len(agents)
@@ -237,7 +261,8 @@ class MADDPG:
                 tau,
                 actor_class,
                 critic_class,
-                self.device,
+                lr=lr,
+                device=self.device,
             )
             for _ in range(n_agents)
         ]
@@ -253,6 +278,10 @@ class MADDPG:
 
         # Init incrementing variables
         self.train_step = 0
+
+    def reset_models(self):
+        for agent in self.agents:
+            agent.reset_model()
 
     def reset(self):
         for agent in self.agent_nets:

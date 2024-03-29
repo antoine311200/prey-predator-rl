@@ -35,7 +35,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("target")],
         predators=[EntityType("high_agent"), EntityType("mid_agent")],
         color=(0, 0, 255),
-        speed=15,
+        speed=5,
         size=20,
     ),
     EntityType("mid_agent"): IFoodChainAgent(
@@ -43,7 +43,7 @@ SIMPLE_FOODCHAIN_RELATIONS: dict[EntityType, IFoodChainAgent] = {
         preys=[EntityType("low_agent")],
         predators=[EntityType("high_agent"), EntityType("super_agent")],
         color=(0, 255, 0),
-        speed=6,
+        speed=3,
         size=12
     ),
     EntityType("high_agent"): IFoodChainAgent(
@@ -182,7 +182,7 @@ class FoodChainScenario(BaseScenario):
         reward -= alpha * sum(coop_distance)
 
         # Reward for catching preys
-        reward += 10 * self.caught[agent.type]
+        reward += 50 * self.caught[agent.type]
 
         # Maximize the distance to predators
         distances = self.distances[agent]
@@ -193,6 +193,14 @@ class FoodChainScenario(BaseScenario):
                 radius = (agent.geometry.width / 2 + pred.geometry.width / 2) / self.width
                 if distance < radius:
                     reward -= 10
+
+
+        # Add border penalty
+        for pos_coord in [agent.x / self.width, agent.y / self.width]:
+            # Resize to be between -1 and 1
+            pos_coord = 2 * pos_coord - 1
+            if abs(pos_coord) >= 0.9:
+                reward -= (abs(pos_coord) - 0.9) * 10
 
         # print(f"Agent: {agent.type}, Reward: {reward}")
 

@@ -10,16 +10,17 @@ from predator_prey.models import Actor, Critic
 from predator_prey.scenario.scenarios import get_scenarios
 
 if __name__ == "__main__":
-    scenario, instance = get_scenarios("food_chain", width=1200, height=700)#get_scenarios("big_prey_predators")
-    env = MultiAgentEnvionment(scenario, n_steps=100)
+    scenario, instance = get_scenarios("food_chain", width=400, height=400)#get_scenarios("big_prey_predators")
+    env = MultiAgentEnvionment(scenario, n_steps=500)
 
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=64,
+        hidden_size=256,
         actor_class=Actor,
         critic_class=Critic,
-        n_agents=len(env.agents),
+        agents=env.agents,
+        mode="shared"
     )
     maddpg.load("test")
 

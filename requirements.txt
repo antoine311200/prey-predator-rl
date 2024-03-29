@@ -5,4 +5,4 @@ pyglet
 torch
 stable-baselines3
 opencv-python
--e .
+tensorboard
