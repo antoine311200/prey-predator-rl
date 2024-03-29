@@ -107,7 +107,8 @@ class DDPG:
         tau: float,
         actor_class,
         critic_class,
-        device,
+        lr: float = 1e-3,
+        device="cpu",
     ) -> None:
         self.state_size = state_size
         self.action_size = action_size
@@ -121,15 +122,15 @@ class DDPG:
         self.ou = OrnsteinUhlenbeckActionNoise(mu=np.zeros((action_size,)))
         self.actor = actor_class(state_size, hidden_size, action_size).to(device)
         self.critic = critic_class(
-            state_size * n_agents, 4 * hidden_size, action_size * n_agents
+            state_size * n_agents, hidden_size, action_size * n_agents
         ).to(device)
 
         self.target_actor = deepcopy(self.actor).to(device)
         self.target_critic = deepcopy(self.critic).to(device)
 
         # Init optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
     def act(self, state: np.ndarray, explore: bool = False) -> np.ndarray:
         with torch.no_grad():
@@ -220,6 +221,7 @@ class MADDPG:
         batch_size: int = 256,
         warmup_steps: int = 1_000,
         train_every_n_steps: int = 10,
+        lr: float = 1e-3,
         mode="single"
     ) -> None:
         n_agents = len(agents)
@@ -237,7 +239,8 @@ class MADDPG:
                 tau,
                 actor_class,
                 critic_class,
-                self.device,
+                lr=lr,
+                device=self.device,
             )
             for _ in range(n_agents)
         ]

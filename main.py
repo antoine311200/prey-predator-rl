@@ -31,26 +31,28 @@ if __name__ == "__main__":
     else:
         writer = None
 
-    max_steps = 50_000
+    max_steps = 80_000
     warmup_steps = 1_000
     eval_every_n_episodes = 150
 
     # scenario, instance = get_scenarios("food_chain")
-    scenario, instance = get_scenarios("food_chain", width=700, height=700)
+    scenario, instance = get_scenarios("food_chain", width=400, height=400)
     # scenario, instance = get_scenarios("big_prey_predators")
     env = MultiAgentEnvionment(scenario, n_steps=100)
 
     maddpg = MADDPG(
         env.state_size,
         env.action_size,
-        hidden_size=64,
+        hidden_size=256,
         actor_class=Actor,
         critic_class=Critic,
         agents=env.agents,
         warmup_steps=warmup_steps,
         train_every_n_steps=5,
-        mode="shared"
+        lr=3e-3,
+        mode="global"
     )
+    maddpg.load("test")
 
     obs, info = env.reset()
 
@@ -129,7 +131,7 @@ if __name__ == "__main__":
         step += 1
         if step % 25_000 == 0:
             print("Saving model")
-            maddpg.save("test")
+            maddpg.save("global")
 
     close_writer(writer)
     # Save render in tensorboard folder
