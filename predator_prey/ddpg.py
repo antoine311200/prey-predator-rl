@@ -213,18 +213,21 @@ class MADDPG:
         hidden_size: int,
         actor_class: torch.nn.Module,
         critic_class: torch.nn.Module,
-        n_agents: int = 1,
+        agents: list = None,
         max_buffer_size: int = int(1e6),
         gamma: float = 0.99,
         tau: float = 0.001,
         batch_size: int = 256,
         warmup_steps: int = 1_000,
         train_every_n_steps: int = 10,
+        mode="single"
     ) -> None:
+        n_agents = len(agents)
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.rb = ReplayBuffer(state_size, action_size, n_agents, max_buffer_size)
 
-        self.agents = [
+        self.agent_nets = [
             DDPG(
                 state_size,
                 action_size,
@@ -238,6 +241,10 @@ class MADDPG:
             )
             for _ in range(n_agents)
         ]
+        self.agents = agents
+
+        self.mode = mode
+        self.set_mode(self.mode)
 
         # Hyperparameters
         self.batch_size = batch_size
@@ -248,12 +255,12 @@ class MADDPG:
         self.train_step = 0
 
     def reset(self):
-        for agent in self.agents:
+        for agent in self.agent_nets:
             agent.reset()
 
     def act(self, states: np.ndarray, explore: bool = False) -> Tuple[np.ndarray, ...]:
         return tuple(
-            [agent.act(state, explore) for agent, state in zip(self.agents, states)]
+            [agent.act(state, explore) for agent, state in zip(self.agent_nets, states)]
         )
 
     def remember(self, state, action, reward, done, next_state):
@@ -274,12 +281,12 @@ class MADDPG:
         next_states = next_states.to(self.device)
         dones = dones.to(self.device)
         losses = []
-        for incr, agent in enumerate(self.agents):
+        for incr, agent in enumerate(self.agent_nets):
             # Get the actions of all agents
             current_action = torch.stack(
                 [
                     _agent.get_current_action(states[:, _incr])
-                    for _incr, _agent in enumerate(self.agents)
+                    for _incr, _agent in enumerate(self.agent_nets)
                 ],
                 dim=1,
             )
@@ -287,7 +294,7 @@ class MADDPG:
             target_actions = torch.stack(
                 [
                     _agent.get_target_action(next_states[:, _incr])
-                    for _incr, _agent in enumerate(self.agents)
+                    for _incr, _agent in enumerate(self.agent_nets)
                 ],
                 dim=1,
             )
@@ -304,7 +311,7 @@ class MADDPG:
             losses.append(loss)
 
         # Update target networks
-        for agent in self.agents:
+        for agent in self.agent_nets:
             agent.update_target()
 
         if losses[0] == None:
@@ -312,11 +319,47 @@ class MADDPG:
         return losses
 
     def save(self, path: str) -> None:
-        for incr, agent in enumerate(self.agents):
+        for incr, agent in enumerate(self.agent_nets):
             torch.save(agent.actor.state_dict(), f"{path}_actor_{incr}.pth")
             torch.save(agent.critic.state_dict(), f"{path}_critic_{incr}.pth")
 
     def load(self, path: str) -> None:
-        for incr, agent in enumerate(self.agents):
+        for incr, agent in enumerate(self.agent_nets):
             agent.actor.load_state_dict(torch.load(f"{path}_actor_{incr}.pth"))
             agent.critic.load_state_dict(torch.load(f"{path}_critic_{incr}.pth"))
+
+    def set_mode(self, mode: str) -> None:
+        if mode == "single":
+            # Do nothing
+            pass
+        elif mode == "shared":
+            # Set the same actor and critic for all agents of the same type
+            actor_per_type = {}
+            critic_per_type = {}
+            target_actor_per_type = {}
+            target_critic_per_type = {}
+
+            for i, agent in enumerate(self.agents):
+                if agent.type not in actor_per_type:
+                    actor_per_type[agent.type] = self.agent_nets[i].actor
+                    critic_per_type[agent.type] = self.agent_nets[i].critic
+                    target_actor_per_type[agent.type] = self.agent_nets[i].target_actor
+                    target_critic_per_type[agent.type] = self.agent_nets[i].target_critic
+                else:
+                    self.agent_nets[i].actor = actor_per_type[agent.type]
+                    self.agent_nets[i].critic = critic_per_type[agent.type]
+                    self.agent_nets[i].target_actor = target_actor_per_type[agent.type]
+                    self.agent_nets[i].target_critic = target_critic_per_type[agent.type]
+        elif mode == "global":
+            # Set the same actor and critic for all agents
+            actor = self.agent_nets[0].actor
+            critic = self.agent_nets[0].critic
+            target_actor = self.agent_nets[0].target_actor
+            target_critic = self.agent_nets[0].target_critic
+            for agent in self.agent_nets:
+                agent.actor = actor
+                agent.critic = critic
+                agent.target_actor = target_actor
+                agent.target_critic = target_critic
+        else:
+            raise ValueError(f"Mode {mode} not recognized")

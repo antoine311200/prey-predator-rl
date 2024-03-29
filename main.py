@@ -32,7 +32,7 @@ if __name__ == "__main__":
         writer = None
 
     max_steps = 50_000
-    warmup_steps = 1000
+    warmup_steps = 1_000
     eval_every_n_episodes = 150
 
     # scenario, instance = get_scenarios("food_chain")
@@ -46,9 +46,10 @@ if __name__ == "__main__":
         hidden_size=64,
         actor_class=Actor,
         critic_class=Critic,
-        n_agents=len(env.agents),
+        agents=env.agents,
         warmup_steps=warmup_steps,
         train_every_n_steps=5,
+        mode="shared"
     )
 
     obs, info = env.reset()
@@ -83,13 +84,14 @@ if __name__ == "__main__":
             push_scalar(writer, "train_reward", cumul_train_reward, step)
             push_scalar(writer, "time", time.time() - start, step)
             # Reset counters
+
+            print(f"Episode {n_episodes+1} > {time.time() - start_episode_time:.2f}s | Reward: {cumul_train_reward:.2f}")
+            start_episode_time = time.time()
+
             cumul_train_reward = 0
             n_episodes += 1
             if n_episodes % eval_every_n_episodes == 0:
                 do_one_eval = True
-
-            print(f"Episode {n_episodes} > {time.time() - start_episode_time:.2f}s")
-            start_episode_time = time.time()
 
         if do_one_eval:
             obs, info = env.reset()
