@@ -32,8 +32,9 @@ def close_writer(writer):
 
 
 MAX_STEPS = 400_000
-N_STEPS = 100
-EVAL_EVERY_N_EPISODES = 10
+N_STEPS = 80
+WARMUP_STEPS = 10_000
+EVAL_EVERY_N_EPISODES = 50
 USE_WRITER = True
 
 if __name__ == "__main__":
@@ -43,14 +44,10 @@ if __name__ == "__main__":
     else:
         writer = None
 
-    max_steps = 80_000
-    warmup_steps = 1_000
-    eval_every_n_episodes = 150
-
     # scenario, instance = get_scenarios("food_chain")
-    scenario, instance = get_scenarios("food_chain", width=400, height=400)
-    # scenario, instance = get_scenarios("big_prey_predators")
-    env = MultiAgentEnvionment(scenario, n_steps=100)
+    # scenario, instance = get_scenarios("food_chain", width=400, height=400)
+    scenario, instance = get_scenarios("big_prey_predators")
+    env = MultiAgentEnvionment(scenario, n_steps=N_STEPS)
 
     maddpg = MADDPG(
         env.state_size,
@@ -59,10 +56,10 @@ if __name__ == "__main__":
         actor_class=Actor,
         critic_class=Critic,
         agents=env.agents,
-        warmup_steps=warmup_steps,
+        warmup_steps=WARMUP_STEPS,
         train_every_n_steps=5,
         lr=3e-3,
-        mode="global"
+        mode="single",
     )
     # maddpg.load("test")
 
@@ -74,7 +71,7 @@ if __name__ == "__main__":
     do_one_eval = False
     start = time.time()
     start_episode_time = time.time()
-    while step < max_steps+1:
+    while step < MAX_STEPS + 1:
         # Take action and update environment
         actions = maddpg.act(obs, explore=True)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
@@ -101,8 +98,13 @@ if __name__ == "__main__":
             push_scalar(writer, "is_caught", np.any(dones), step)
             # Reset counters
 
-            reward_sum = ", ".join(f"{agent.type}: {reward:.2f}" for agent, reward in zip(env.agents, cumul_train_reward))
-            print(f"Episode {n_episodes+1} > {time.time() - start_episode_time:.2f}s | Reward: {reward_sum}")
+            reward_sum = ", ".join(
+                f"{agent.type}: {reward:.2f}"
+                for agent, reward in zip(env.agents, cumul_train_reward)
+            )
+            print(
+                f"Episode {n_episodes+1} > {time.time() - start_episode_time:.2f}s | Reward: {reward_sum}"
+            )
             start_episode_time = time.time()
 
             # cumul_train_reward = 0
@@ -186,7 +188,12 @@ if __name__ == "__main__":
         actions = maddpg.act(obs, explore=False)
         next_obs, rewards, dones, truncated, infos = env.step(actions)
         # print("obs: ", obs[0][:2], "actions: ", actions[0], "rewards: ", rewards[0])
-        print(" | ".join(f"{agent.type}: {reward:.3f}" for agent, reward in zip(env.agents, rewards)))
+        print(
+            " | ".join(
+                f"{agent.type}: {reward:.3f}"
+                for agent, reward in zip(env.agents, rewards)
+            )
+        )
         obs = next_obs
         if np.any(dones) or truncated:
             maddpg.reset()

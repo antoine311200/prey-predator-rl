@@ -6,3 +6,4 @@ torch
 stable-baselines3
 opencv-python
 tensorboard
+tqdm

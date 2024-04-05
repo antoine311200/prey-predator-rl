@@ -74,10 +74,6 @@ def get_scenarios(
         instance = Instance(width, height)
         scenario = big_prey_predators(width, height)
         return scenario, instance
-    elif name == "very_big_prey_predators":
-        instance = Instance(width, height)
-        scenario = very_big_prey_predators(width, height)
-        return scenario, instance
     elif name == "food_chain":
         instance = Instance(width, height, food_chain=SIMPLE_FOODCHAIN_RELATIONS)
         scenario = food_chain(width, height)
