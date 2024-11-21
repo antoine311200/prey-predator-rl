@@ -5,6 +5,7 @@ This repository contains the code for a prey predator simulation. The simulation
 
 
 Full report: [report.pdf](assets/report.pdf)
+
 Poster: [poster.pdf](assets/poster.pdf)
 
 ![Demo](assets/demo.gif)
